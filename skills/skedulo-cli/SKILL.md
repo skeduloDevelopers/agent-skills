@@ -45,7 +45,11 @@ Use `get --json` to inspect artifacts — NOT `get -o` which downloads files int
 
 Query the platform instead of asking the user. Pattern: `sked artifacts <type> list --json -a <alias>`. Use it to get function URLs, introspect schemas, check webhooks, etc. Be self-sufficient.
 
-**For field introspection:** List custom objects first to get exact names, THEN list fields: `sked artifacts custom-field list --objectName <ExactName> --json -a <alias>`. Don't guess object names — they're case-sensitive.
+**For field introspection:** Use `list` to get ALL fields on an object in one call — do NOT use `get` for individual fields. The correct pattern:
+1. `sked artifacts custom-object list --json -a <alias>` — get exact object names
+2. `sked artifacts custom-field list --objectName <ExactName> --json -a <alias>` — get ALL fields at once
+
+Never guess field names or fire parallel `get` calls for individual fields. `list` returns everything you need in one request.
 
 Note: some artifact types return "not implemented" for `list` — fall back to `get --json` with a known name, or ask the user.
 
