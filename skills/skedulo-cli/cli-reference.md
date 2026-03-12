@@ -68,6 +68,28 @@ All artifact commands follow: `sked artifacts <type> <operation> [flags] -a <ali
 |---------|-------|------------|
 | `sked web-extension dev DIRECTORY` | `--json`, `-h` (host) | No (local only) |
 
+## Artifact Descriptions
+
+Understanding what each artifact represents helps you choose the right one to modify.
+
+**Note:** Artifact availability is tenant-specific. Some types may be in alpha/beta with limited rollout — a type available on dev may not be on UAT. If a command fails unexpectedly, the type may not be enabled on that tenant.
+
+| Artifact | What it is | Key detail |
+|----------|-----------|------------|
+| **custom-object** | Defines a data schema (like a database table) | Create objects before adding fields to them |
+| **custom-field** | A field on a custom object (column on the table) | Types: String, Integer, Decimal, Date, DateTime, Time, Checkbox, Picklist, MultiPicklist, TextArea, URL, Lookup, Has-many |
+| **function** | Server-side code that runs on Skedulo's platform (bundled) | JSON metadata + `source` directory with the actual code. Deploy the JSON file, not the directory |
+| **horizon-page** | A pointer to a horizon-template — defines the page's name, slug, and published state | To change the page's **UI**, update the **horizon-template** instead |
+| **horizon-template** | The actual UI component for a page (bundled) | Contains the React/TypeScript source code. This is what you modify to change what a page looks like |
+| **web-extension** | A bundled UI artifact deployed into the Skedulo web app (bundled) | JSON metadata + `source` directory |
+| **webhook** | A GraphQL subscription that pushes data to an external URL | The `query` field defines what data is sent; `url` is where it goes |
+| **triggered-action** | Fires when data changes and calls a URL (usually a function) | Needs a function URL — discover it via `sked artifacts function list --json` |
+| **public-page** | A publicly accessible page (bundled) | No authentication required to access |
+| **mobile-extension** | Extends the Skedulo mobile app (bundled) | JSON metadata + `source` directory |
+| **user-role** | Defines permissions for a group of users | Uses permission patterns with wildcard support (`skedulo.tenant.*`) |
+
+**Bundled artifacts** (function, horizon-template, web-extension, public-page, mobile-extension) have a `source` field pointing to a directory containing the implementation. Always deploy using the JSON metadata file, not the source directory.
+
 ## Artifact JSON Schemas
 
 File naming convention: `{name}.{artifact-type}.json`

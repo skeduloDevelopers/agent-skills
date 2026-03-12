@@ -57,6 +57,21 @@ On auth errors: run `sked tenant list` to check token expiry. If expired: `sked 
 
 **Safety:** Use `--dryRun` on package deploys. Prefer `upsert` (create/update are deprecated). Deleting Lookup fields cascades to Has-many relationships.
 
+## Artifact Model
+
+Understand what each artifact IS before choosing which to modify. See cli-reference.md for full descriptions.
+
+**Key relationships:**
+- **horizon-page** is just a pointer (name, slug, published flag) → to change the UI, update the **horizon-template** it references
+- **horizon-template** contains the actual UI code (bundled: JSON + source directory)
+- **function** artifact is metadata + source bundle → the code lives in the `source` directory
+- **triggered-action** fires on data events and calls a URL (usually a function) → discover the function URL via `list` first
+- **webhook** defines a GraphQL subscription → the `query` field contains the subscription logic
+- **custom-object** defines the schema → **custom-field** defines individual fields on that object
+- **web-extension** is a bundled UI artifact deployed into the Skedulo web app
+
+**Artifact availability varies by tenant.** Not all artifact types are enabled on every tenant — some may be in alpha/beta with limited rollout. If an artifact command fails unexpectedly, the type may not be enabled on that tenant. Check a different tenant or ask the user.
+
 ## Quick Reference
 
 | Task | Pattern |
