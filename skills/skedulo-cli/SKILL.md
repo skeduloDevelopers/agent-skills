@@ -71,6 +71,7 @@ On auth errors: run `sked tenant list` to check token expiry. If expired: `sked 
 
 ## Notes
 
+- **Singular type names:** `sked artifacts function` NOT `functions`. All types are singular: `function`, `webhook`, `custom-field`, `custom-object`, `horizon-page`, `triggered-action`, `web-extension`, `user-role`. When unsure, run `sked artifacts --help`.
 - **Async deploys:** `-w` controls wait time (default 900s). Check output for status.
 - **Identifiers:** Most use `--name`; `horizon-page` uses `--slug`; `custom-field` needs `--name` + `--objectName`.
 - **Full reference:** See cli-reference.md for complete command syntax and artifact JSON schemas.
