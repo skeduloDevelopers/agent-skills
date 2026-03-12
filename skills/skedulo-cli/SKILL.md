@@ -43,7 +43,7 @@ Use `get --json` to inspect artifacts — NOT `get -o` which downloads files int
 
 ### 4. Use `list` + `--json` for discovery
 
-Query the platform instead of asking the user. Pattern: `sked artifacts <type> list --json -a <alias>`. Use it to get function URLs, introspect schemas (`--objectName` for custom-field), check webhooks, etc. Be self-sufficient.
+Query the platform instead of asking the user. Pattern: `sked artifacts <type> list --json -a <alias>`. Use it to get function URLs, introspect schemas (`--objectName` for custom-field), check webhooks, etc. Be self-sufficient. Note: some artifact types return "not implemented" for `list` — if this happens, fall back to `get --json` with a known name, or ask the user.
 
 ### 5. Handle auth errors correctly
 
