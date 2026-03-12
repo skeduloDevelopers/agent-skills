@@ -43,11 +43,19 @@ Use `get --json` to inspect artifacts — NOT `get -o` which downloads files int
 
 ### 4. Use `list` + `--json` for discovery
 
-Query the platform instead of asking the user. Pattern: `sked artifacts <type> list --json -a <alias>`. Use it to get function URLs, introspect schemas (`--objectName` for custom-field), check webhooks, etc. Be self-sufficient. Note: some artifact types return "not implemented" for `list` — if this happens, fall back to `get --json` with a known name, or ask the user.
+Query the platform instead of asking the user. Pattern: `sked artifacts <type> list --json -a <alias>`. Use it to get function URLs, introspect schemas, check webhooks, etc. Be self-sufficient.
 
-### 5. Handle auth errors correctly
+**For field introspection:** List custom objects first to get exact names, THEN list fields: `sked artifacts custom-field list --objectName <ExactName> --json -a <alias>`. Don't guess object names — they're case-sensitive.
 
-On auth errors: run `sked tenant list` to check token expiry. If expired: `sked tenant login web -a <alias>`. Don't debug command syntax when it's an auth issue. For deeper debugging: `DEBUG=*skedulo* sked <command>`.
+Note: some artifact types return "not implemented" for `list` — fall back to `get --json` with a known name, or ask the user.
+
+### 5. Handle errors correctly
+
+**Auth errors:** Run `sked tenant list` to check token expiry. If expired: `sked tenant login web -a <alias>`. Don't debug command syntax when it's an auth issue.
+
+**"Not Found" errors:** Usually means wrong name/casing (e.g., `Projects` vs `Project`). List first to discover exact names: `sked artifacts custom-object list --json -a <alias>` before querying fields.
+
+**CLI errors include stack traces** — ignore the stack, read the `message` field for the actual error. For deeper debugging: `DEBUG=*skedulo* sked <command>`.
 
 ### 6. Confirm before destructive operations
 
