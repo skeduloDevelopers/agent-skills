@@ -1,0 +1,5 @@
+# Local settings
+.claude/settings.local.json
+
+# Internal development artifacts
+docs/superpowers/
