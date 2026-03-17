@@ -23,7 +23,8 @@ To add a new skill, create a directory under `skills/` with a `SKILL.md` file:
 ```
 skills/
   my-new-skill/
-    SKILL.md              # Required — main skill file with YAML frontmatter
+    SKILL.md              # Required — skill rules, workflows, and domain knowledge
+    AGENTS.md             # Required — trigger conditions and agent-facing context
     supporting-file.md    # Optional — heavy reference or supporting material
 ```
 
