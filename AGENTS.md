@@ -6,7 +6,7 @@ Agent skills for building on the [Skedulo Pulse Platform](https://www.skedulo.co
 
 | Skill | Description | Use when | Install |
 |-------|-------------|----------|---------|
-| [skedulo-cli](skills/skedulo-cli/) | Safe, effective usage of the Skedulo CLI (`sked`) | Running any `sked` command, deploying packages, switching tenants, or working with platform artifacts | `npx skills add Skedulo/agent-skills@skedulo-cli` |
+| [skedulo-cli](skills/skedulo-cli/) | Safe, effective usage of the Skedulo CLI (`sked`) | Running any `sked` command, deploying packages, switching tenants, working with platform artifacts, or performing destructive operations | `npx skills add Skedulo/agent-skills@skedulo-cli` |
 
 ## Installation
 
@@ -22,7 +22,8 @@ To add a new skill, create a directory under `skills/` with a `SKILL.md` and an 
 
     skills/
       my-new-skill/
-        SKILL.md       # Required — skill rules, workflows, and domain knowledge
-        AGENTS.md      # Required — trigger conditions and agent-facing context
+        SKILL.md              # Required — skill rules, workflows, and domain knowledge
+        AGENTS.md             # Required — trigger conditions and agent-facing context
+        supporting-file.md    # Optional — heavy reference or supporting material
 
 See the [Skills documentation](https://skills.sh/) for authoring guidelines.
