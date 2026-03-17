@@ -18,7 +18,7 @@ npx skills add Skedulo/agent-skills@skedulo-cli
 
 ## Contributing
 
-To add a new skill, create a directory under `skills/` with a `SKILL.md` file:
+To add a new skill, create a directory under `skills/` with a `SKILL.md` and an `AGENTS.md`:
 
 ```
 skills/
