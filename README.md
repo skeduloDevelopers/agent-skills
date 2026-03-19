@@ -7,7 +7,7 @@ Agent skills for building on the [Skedulo Pulse Platform](https://www.skedulo.co
 Install individual skills using the [Skills CLI](https://skills.sh/):
 
 ```bash
-npx skills add Skedulo/agent-skills@skedulo-cli
+npx skills add Skedulo/agent-skills@<skill-name>
 ```
 
 ## Available Skills
@@ -15,6 +15,9 @@ npx skills add Skedulo/agent-skills@skedulo-cli
 | Skill | Description | Install |
 |-------|-------------|---------|
 | [skedulo-cli](skills/skedulo-cli/) | Safe, effective usage of the Skedulo CLI (`sked`) — alias enforcement, `--help` proactivity, `--json` inspection, and destructive operation guardrails | `npx skills add Skedulo/agent-skills@skedulo-cli` |
+| [skedulo-api-developer](skills/skedulo-api-developer/) | Expert patterns for building solutions with Skedulo Pulse APIs — `@skedulo/pulse-solution-services`, GraphQL, EQL, batch operations, and performance optimization | `npx skills add Skedulo/agent-skills@skedulo-api-developer` |
+| [connected-function-developer](skills/connected-function-developer/) | Build, modify, and deploy Skedulo custom functions — serverless APIs for custom business logic and third-party integrations on the Pulse Platform | `npx skills add Skedulo/agent-skills@connected-function-developer` |
+| [optimization-extension-developer](skills/optimization-extension-developer/) | Build, modify, and deploy Skedulo Optimization Extensions — custom business logic for filtering, constraining, and transforming optimization data | `npx skills add Skedulo/agent-skills@optimization-extension-developer` |
 
 ## Contributing
 
