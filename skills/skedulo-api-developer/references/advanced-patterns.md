@@ -333,7 +333,7 @@ class DataMigration extends GraphBatch {
     
     const queryBuilder = this.context
       .newQueryBuilder({ objectName: "Jobs", operationName: "migrateJobs" })
-      .withFields(["UID", "Name", "Description"])
+      .withFields(["UID", "Name", "Description", "CreatedDate"])
       .withOrderBy("CreatedDate ASC");
 
     if (checkpoint) {

@@ -20,7 +20,7 @@ Custom functions are Skedulo's serverless API platform. They provide stateless, 
 ### Function Structure
 
 Every function has this file structure:
-```
+```text
 my-function/
 ├── sked.proj.json       # Function configuration and settings
 ├── state.json           # Metadata for CLI operations
@@ -43,7 +43,7 @@ This file defines the function configuration:
   "version": "2",
   "name": "my-function-name",
   "description": "Clear description of what this function does",
-  "runtime": "nodejs24.x",
+  "runtime": "nodejs22.x",
   "settings": {
     "configVars": [
       {
@@ -62,7 +62,7 @@ This file defines the function configuration:
 - `version`: Always "2"
 - `name`: Lowercase with hyphens, describes purpose
 - `description`: Clear explanation for administrators
-- `runtime`: Use "nodejs18.x"
+- `runtime`: Use "nodejs22.x"
 - `settings.configVars`: Array of configuration variables
 
 ### Configuration Variables
@@ -463,7 +463,7 @@ import { ExecutionContext } from "@skedulo/pulse-solution-services";
 ### Local Testing with .env
 
 Create `.env` file for local config vars:
-```
+```dotenv
 STRIPE_API_KEY=sk_test_xxxxx
 WEBHOOK_SECRET=whsec_xxxxx
 API_ENDPOINT=https://api.example.com

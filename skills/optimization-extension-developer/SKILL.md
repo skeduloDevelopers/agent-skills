@@ -21,7 +21,7 @@ Optimization Extensions are Connected Functions that hook into Skedulo's optimiz
 ### Extension Structure
 
 Every optimization extension has this file structure:
-```
+```text
 my-extension/
 ├── sked.proj.json       # Function configuration
 ├── state.json           # Metadata for CLI operations
@@ -214,7 +214,7 @@ In `sked.proj.json`:
   "version": "2",
   "name": "priority-filter-extension",
   "description": "Filters jobs by priority level",
-  "runtime": "nodejs18.x",
+  "runtime": "nodejs22.x",
   "settings": {
     "configVars": [
       {

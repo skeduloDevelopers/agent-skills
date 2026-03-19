@@ -111,7 +111,7 @@ It is similar to an SQL `WHERE` clause.
 | Boolean | `true`, `false` |
 | Integer | `997` |
 | Floating Point | `25.96` |
-| Instant | `2018-06-04T09:35:76.000Z` (note milliseconds are required) |
+| Instant | `2018-06-04T09:35:56.000Z` (note milliseconds are required) |
 | Local Time | `09:35:05` |
 | Local Date | `2018-06-04` |
 | Duration | `15 minutes`, `1 hour` |
@@ -657,4 +657,4 @@ async function getAllJobs(context) {
 8. **Cache expensive operations** to improve performance
 9. **Use UniqueGraphBatch** to prevent duplicate runs
 10. **Log structured data** for better observability
-11. **ALWAYS user proper types** instead of `any`. Validate props with Typescript
+11. **ALWAYS use proper types** instead of `any`. Validate props with Typescript
