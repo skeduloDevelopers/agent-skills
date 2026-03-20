@@ -1,6 +1,20 @@
 ---
 name: connected-function-developer
 description: This skill enables Claude to build, modify, and deploy Skedulo custom functions. Custom functions are server-side APIs that run on Skedulo's platform without requiring users to manage their own infrastructure.
+displayName: Connected Functions
+status: available
+category: Backend
+featured: true
+pulseComponents:
+  - Connected Functions
+  - Skedulo API
+sdks:
+  - "@skedulo/sdk-utilities"
+  - "@skedulo/function-utilities"
+  - "@skedulo/pulse-solution-services"
+filePatterns:
+  - "src/functions/**/*.ts"
+  - "sked.proj.json"
 ---
 
 # Skedulo Custom Functions Skill
