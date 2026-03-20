@@ -12,7 +12,7 @@ sdks:
   - "@skedulo/pulse-solution-services"
   - "@skedulo/optimization-manager-client"
 filePatterns:
-  - "src/functions/optimisation-extensions/**/*.ts"
+  - "src/functions/optimization-extensions/**/*.ts"
   - "sked.proj.json"
 ---
 
