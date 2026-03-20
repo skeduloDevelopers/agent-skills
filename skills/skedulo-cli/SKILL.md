@@ -1,6 +1,16 @@
 ---
 name: skedulo-cli
 description: Use when running any Skedulo CLI (sked) command — deployments, artifact operations, package management, tenant switching. Prevents alias-loss bugs, enforces --help usage, and guides safe CLI patterns.
+displayName: Skedulo CLI
+status: available
+category: Platform
+featured: false
+pulseComponents:
+  - Skedulo CLI
+sdks: []
+filePatterns:
+  - "sked.proj.json"
+  - "skeduloPackage.json"
 ---
 
 # Skedulo CLI

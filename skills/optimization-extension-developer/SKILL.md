@@ -1,6 +1,19 @@
 ---
 name: optimization-extension-developer
 description: This skill enables Claude to build, modify, and deploy Skedulo Optimization Extensions. Optimization Extensions add custom business logic to the Pulse Platform optimization engine, allowing filtering of jobs/resources, applying constraints, and transforming optimization data.
+displayName: Optimization Extensions
+status: available
+category: Backend
+featured: false
+pulseComponents:
+  - Optimization Extensions
+sdks:
+  - "@skedulo/sdk-utilities"
+  - "@skedulo/pulse-solution-services"
+  - "@skedulo/optimization-manager-client"
+filePatterns:
+  - "src/functions/optimization-extensions/**/*.ts"
+  - "sked.proj.json"
 ---
 
 # Skedulo Optimization Extensions Skill

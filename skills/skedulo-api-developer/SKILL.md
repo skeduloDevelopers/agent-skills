@@ -1,6 +1,17 @@
 ---
 name: skedulo-api-developer
 description: Expert guidance for building high-performance solutions with Skedulo Pulse APIs. Use this skill when working with @skedulo/pulse-solution-services, implementing GraphQL queries and mutations, correct EQL syntax, managing batch operations, validating resources, or optimizing API performance in Pulse platform functions.
+displayName: Skedulo API
+status: available
+category: Backend
+featured: false
+pulseComponents:
+  - Skedulo API
+  - Connected Functions
+sdks:
+  - "@skedulo/pulse-solution-services"
+filePatterns:
+  - "src/functions/**/*.ts"
 ---
 
 # Skedulo API Developer Skill
