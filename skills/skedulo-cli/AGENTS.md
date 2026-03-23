@@ -1,4 +1,4 @@
-# skedulo-cli
+# Skedulo CLI
 
 Safe, effective usage of the Skedulo CLI (`sked`) on the Pulse Platform.
 
@@ -7,16 +7,25 @@ Safe, effective usage of the Skedulo CLI (`sked`) on the Pulse Platform.
 - Running any `sked` command
 - Deploying packages or artifacts to a Pulse tenant
 - Switching between tenants or checking tenant auth status
-- Inspecting platform artifacts (functions, webhooks, custom objects, horizon pages, etc.)
-- Modifying or upserting platform artifacts
+- Inspecting or modifying platform artifacts (functions, webhooks, custom fields, horizon pages, etc.)
 - Debugging CLI errors or auth failures
 - Performing destructive operations (delete, package register)
 
-## What to expect
+## Key rules
 
-Once activated, this skill enforces alias (`-a`) usage on every tenant-scoped command, proactively uses `--help` to confirm flag support, guides safe inspection patterns (`--json`, `list` for discovery), and requires confirmation before destructive operations. It prevents common mistakes like deploying to the wrong tenant, using the wrong artifact identifiers, or accidentally downloading files when only inspection is needed.
+- Every tenant-scoped command MUST include `-a <alias>`
+- Always run `--help` before guessing flags
+- Clone `SkeduloCLIExamples` repo for artifact JSON schemas — never guess
+- Use `list --json` for discovery, `get --json` for inspection
+- Confirm with user before any destructive operation
 
-## Example
+## Examples
 
-    # Inspect a function artifact safely
-    sked artifacts function get --name MyFunction --json -a <alias>
+    # Inspect an artifact
+    sked artifacts function list --json -a my-tenant
+
+    # Create a custom field (get schema from examples repo first)
+    sked artifacts custom-field upsert -f MyField.custom-field.json -a my-tenant
+
+    # Deploy a package
+    sked package deploy local -p ./my-package -a my-tenant --dryRun
