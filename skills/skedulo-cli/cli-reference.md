@@ -35,9 +35,9 @@ All artifact commands follow: `sked artifacts <type> <operation> [flags] -a <ali
 
 | Flag | Used on | Purpose |
 |------|---------|---------|
-| `-a <alias>` | All artifact commands | Target tenant (REQUIRED — see Rule 1) |
+| `-a <alias>` | All artifact commands | Target tenant (REQUIRED) |
 | `-f <file>` | upsert, create, update | Path to artifact JSON file |
-| `-o <dir>` | get | Output directory (only use when modifying) |
+| `-o <dir>` | get | Output directory |
 | `-w <seconds>` | upsert, delete | Wait timeout (default: 900s) |
 | `--json` | All commands | JSON output to stdout |
 | `--name <value>` | get, delete, upsert | Artifact identifier |
@@ -92,160 +92,8 @@ Understanding what each artifact represents helps you choose the right one to mo
 
 ## Artifact JSON Schemas
 
-File naming convention: `{name}.{artifact-type}.json`
+**Do not use the examples below as templates for creating artifacts.** They are minimal reference for recognizing artifact structure only.
 
-Bundled artifacts (functions, horizon-templates, web-extensions, public-pages) have a `source` field pointing to a directory. Deploy using the JSON file, not the directory.
+For complete, type-specific schemas (especially custom fields which vary by type): clone `https://github.com/skeduloDevelopers/SkeduloCLIExamples` and read the relevant examples. See "Look up artifact schemas" rule in SKILL.md.
 
-### Custom Object
-
-```json
-{
-  "metadata": { "type": "CustomObject" },
-  "name": "MyObject",
-  "label": "My Object",
-  "description": "Description of the object"
-}
-```
-
-### Custom Field
-
-```json
-{
-  "metadata": { "type": "CustomField" },
-  "objectName": "ParentObject",
-  "name": "FieldName",
-  "field": {
-    "type": "String",
-    "description": "Field description",
-    "display": {
-      "label": "Field Label",
-      "order": 0,
-      "showOnDesktop": true,
-      "showOnMobile": true,
-      "editableOnMobile": true,
-      "requiredOnMobile": false
-    },
-    "constraints": {
-      "required": false,
-      "unique": false,
-      "accessMode": "ReadWrite",
-      "maxLength": 255
-    }
-  }
-}
-```
-
-Field types: String, Integer, Decimal, Date, DateTime, Time, Checkbox, Picklist, MultiPicklist, TextArea, URL, Lookup, Has-many.
-
-### Function (Bundled)
-
-```json
-{
-  "metadata": { "type": "Function" },
-  "name": "my-function",
-  "source": "./my-function"
-}
-```
-
-### Webhook
-
-```json
-{
-  "metadata": { "type": "Webhook" },
-  "name": "my-webhook",
-  "webhook": {
-    "url": "https://example.com/webhook",
-    "headers": { "Authorization": "Bearer {{ TOKEN }}" },
-    "query": "subscription { schemaJobAllocations(operation: [UPDATE]) { data { UID } } }",
-    "type": "graphql"
-  }
-}
-```
-
-### Triggered Action
-
-```json
-{
-  "metadata": { "type": "TriggeredAction" },
-  "name": "my-triggered-action",
-  "enabled": true,
-  "trigger": {
-    "type": "object_modified",
-    "filter": "Operation == 'INSERT'",
-    "schemaName": "JobAllocations"
-  },
-  "action": {
-    "type": "call_url",
-    "url": "https://api.skedulo.com/function/func/func/myFunction",
-    "headers": { "Authorization": "Bearer {{ API_TOKEN }}" },
-    "query": "{ JobId ResourceId }"
-  }
-}
-```
-
-### Horizon Page
-
-```json
-{
-  "metadata": { "type": "HorizonPage" },
-  "name": "My Page",
-  "templateName": "my-template",
-  "slug": "my-page",
-  "published": true,
-  "pageType": "CUSTOM"
-}
-```
-
-### Horizon Template (Bundled)
-
-```json
-{
-  "metadata": { "type": "HorizonTemplate" },
-  "name": "my-template",
-  "description": "",
-  "kind": "PAGE_EXTENDED",
-  "source": "./my-template"
-}
-```
-
-### Web Extension (Bundled)
-
-```json
-{
-  "metadata": { "type": "WebExtension" },
-  "name": "my-extension",
-  "source": "./my-extension"
-}
-```
-
-### Public Page (Bundled)
-
-```json
-{
-  "metadata": { "type": "PublicPage" },
-  "name": "my-page",
-  "source": "./my-page"
-}
-```
-
-### User Role
-
-```json
-{
-  "metadata": { "type": "UserRole" },
-  "name": "Custom Role",
-  "description": "Role description",
-  "custom": true,
-  "permissionPatterns": [
-    "skedulo.tenant.web.access",
-    "skedulo.tenant.data.view",
-    "skedulo.tenant.data.modify"
-  ]
-}
-```
-
-Permission patterns support wildcards: `skedulo.tenant.attachments.*`
-
-### Example Artifacts
-
-See https://github.com/skeduloDevelopers/SkeduloCLIExamples for complete examples of every artifact type.
+**File naming convention:** `{name}.{artifact-type}.json`
