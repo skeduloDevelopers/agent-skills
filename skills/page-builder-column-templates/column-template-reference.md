@@ -1,10 +1,3 @@
----
-title: "Advanced column configuration for list views" 
-description: Enhance the data presented within a list view.
-weight: 60
-type: "docs"
----
-
 ## Overview
 
 Use Skedulo's templating engine to enhance the data displayed in a list view. Column templates support HTML. JavaScript is not supported.
@@ -436,7 +429,7 @@ Access these fields using `$CurrentUser` in column templates. For example:
   
   On an if condition:
 
-  `{{ % if $CurrentUser.Resources[0].PrimaryRegion.Name == Job.Region.Name % }} X {{ % else % }} Y {{ % endif % }}`
+  `{% if $CurrentUser.Resources[0].PrimaryRegion.Name == Job.Region.Name %} X {% else %} Y {% endif %}`
 
 * Category
   

@@ -1,7 +1,7 @@
 ---
-name: add-column-templates
-description: "Reference for Skedulo list view column templates. Trigger whenever the user mentions column templates, Nunjucks syntax, brz-link, brz-lozenge, date formatting in list views, number or currency formatting, conditional column display, cross-object fields, multi-select picklist rendering, current-user context ($CurrentUser), lozenge styling, or column template troubleshooting — even if they use different terms like 'how do I format a column', 'date format not working in list view', 'lozenge example', 'currency format', or 'conditional styling in columns'."
-displayName: Add Column Templates
+name: page-builder-column-templates
+description: "Reference for Skedulo Page Builder list view column templates. Covers Nunjucks syntax, Breeze UI components (brz-link, brz-lozenge), date and timezone formatting, number and currency formatting, multi-select picklist rendering, conditional display, cross-object fields, and $CurrentUser context."
+displayName: Page Builder Column Templates
 status: available
 category: Platform
 featured: false
@@ -12,7 +12,7 @@ sdks: []
 filePatterns: []
 ---
 
-# Add Column Templates Skill
+# Page Builder Column Templates Skill
 
 Provides the canonical reference for Skedulo's advanced column configuration in list views. Column templates use a Nunjucks-based templating engine with HTML support. JavaScript is not supported in column templates.
 
@@ -20,7 +20,7 @@ Provides the canonical reference for Skedulo's advanced column configuration in 
 
 Load the full column template reference before writing or reviewing:
 
-- `advanced-column-config.md` — complete syntax guide covering cross-object fields, styling, hyperlinks, conditionals, expressions, math, comparisons, logic, number/currency/percentage formatting, date/time formatting, timezone manipulation, multi-select picklist rendering, lozenges, and current-user context
+- `column-template-reference.md` — complete syntax guide covering cross-object fields, styling, hyperlinks, conditionals, expressions, math, comparisons, logic, number/currency/percentage formatting, date/time formatting, timezone manipulation, multi-select picklist rendering, lozenges, and current-user context
 
 > **Note:** Image paths in the reference (e.g. `/images/customization/...`) are for the published docs site and are not renderable in this context. Omit or replace them as appropriate for the output format.
 
