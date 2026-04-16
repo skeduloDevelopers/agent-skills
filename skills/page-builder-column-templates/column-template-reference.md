@@ -77,14 +77,6 @@ To link to another page associated with your object, use the `buildPlatformUrl` 
 
 Use `buildPlatformUrl` in place of `/platform/page/` to link to a page using its slug alone. If the `/platform/page/` path changes, the link still resolves as long as the slug remains the same.
 
-<!---
-Real world example: 
-You are a customer with two tenants, Both of which are your team names:
- - ProdTenant
- - SandboxTenant
-So, when you move the config from sandbox to prod you don't want the sandbox team name in there.
-This is only relevant if people have used absolute urls (which i've seen done) vs a relative /path/path/ style url.
---->
 
 ### Concatenation
 
@@ -260,7 +252,7 @@ Date and date/time values are stored in UTC format. Displayed directly, they sho
 | **Hour** | `H` | 0, 1 ... 22, 23 |
 |  | `HH` | 00, 01 ... 22, 23 |
 |  | `h` | 1, 2 ... 11, 12 |
-|  | `hh` | 00, 01 ... 11, 12 |
+|  | `hh` | 01, 02 ... 11, 12 |
 |  | `k` | 1, 2 ... 23, 24 |
 |  | `kk` | 01, 02 ... 23, 24 |
 |  |  |  |
@@ -417,7 +409,7 @@ Display different data based on the currently logged-in user. Available fields v
 | --- | --- |
 | Users | `City`, `Country`, `CreatedById`, `CreatedDate`, `Email`, `FirstName`, `FullPhotoUrl`, `IsActive`, `LastModifiedById`, `LastModifiedDate`, `LastName`, `MobilePhone`, `Name`, `PostalCode`, `SmallPhotoUrl`, `State`, `Street`, `UID`, `UserTypes`, `Roles`, `messaging_beta_access` |
 | Resources | `Alias`, `AutoSchedule`, `Category`, `CountryCode`, `CreatedById`, `CreatedDate`, `Date`, `Email`, `EmploymentType`, `GeoLatitude`, `GeoLongitude`, `HomeAddress`, `IsActive`, `LastModifiedById`, `LastModifiedDate`, `MobilePhone`, `Name`, `Notes`, `NotificationType`, `Number`, `PrimaryPhone`, `PrimaryRegionId`, `Rating`, `ResourceActivityId`, `ResourceLookupId`, `ResourceType`, `Text`, `UID`, `UserId`, `WeeklyHours`, `WorkingHourType`, `ResourceAvatar`, `User` |
-| PrimaryRegion | `Timezone`, `Description`, `Radius`, `LastModifiedDate`, `Radius`, `LastModifiedBy`, `Description`, `CreatedBy`, `GeoLatitude`, `almost_clear`, `covid_case_count`, `GeoLongitude`, `Name`, `CreatedById`, `CreatedDate`, `CountryCode`, `LastModifiedById`, `UID` |
+| PrimaryRegion | `Timezone`, `Description`, `Radius`, `LastModifiedDate`, `LastModifiedBy`, `CreatedBy`, `GeoLatitude`, `almost_clear`, `covid_case_count`, `GeoLongitude`, `Name`, `CreatedById`, `CreatedDate`, `CountryCode`, `LastModifiedById`, `UID` |
 
 #### Use cases
 
@@ -433,7 +425,7 @@ Access these fields using `$CurrentUser` in column templates. For example:
 
 * Category
   
-  `{{ $CurrentUser.Category }}`
+  `{{ $CurrentUser.Resources[0].Category }}`
 
 * Type
   

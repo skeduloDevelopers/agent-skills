@@ -1,6 +1,6 @@
 ---
 name: page-builder-column-templates
-description: "Reference for Skedulo Page Builder list view column templates. Covers Nunjucks syntax, Breeze UI components (brz-link, brz-lozenge), date and timezone formatting, number and currency formatting, multi-select picklist rendering, conditional display, cross-object fields, and $CurrentUser context."
+description: "Use when working with Skedulo Page Builder list view column templates — Nunjucks syntax, brz-link, brz-lozenge, date/timezone formatting, number/currency, picklists, conditional display, cross-object fields, and $CurrentUser context."
 displayName: Page Builder Column Templates
 status: available
 category: Platform
@@ -129,7 +129,7 @@ When writing or reviewing documentation about column templates:
 
 ### Number and currency
 
-- `number(decimals=N)` rounds trailing decimals — it does not pad. `3` with `decimals=2` renders as `3.00`, but `3.456` renders as `3.46`.
+- `number(decimals=N)` rounds to the specified decimal places. `3` with `decimals=2` renders as `3.00`, and `3.456` renders as `3.46`.
 - Currency symbols go outside the expression: `${{ Cost \| number(decimals=2) }}`, not inside the filter.
 - Calculated values (e.g., `{{ Duration * Rate }}`) are display-only — users cannot filter or sort on them.
 
