@@ -19,6 +19,7 @@ npx skills add Skedulo/agent-skills@<skill-name>
 | [connected-function-developer](skills/connected-function-developer/) | Build, modify, and deploy Skedulo custom functions: serverless APIs for custom business logic and third-party integrations on the Pulse Platform | `npx skills add Skedulo/agent-skills@connected-function-developer` |
 | [optimization-extension-developer](skills/optimization-extension-developer/) | Build, modify, and deploy Skedulo Optimization Extensions: custom business logic for filtering, constraining, and transforming optimization data | `npx skills add Skedulo/agent-skills@optimization-extension-developer` |
 | [page-builder-column-templates](skills/page-builder-column-templates/) | Complete guide to Skedulo Page Builder list view column templates, covering template syntax, styling, date/timezone formatting, number/currency, picklists, conditionals, and cross-object fields | `npx skills add Skedulo/agent-skills@page-builder-column-templates` |
+| [mobile-extension-developer](skills/mobile-extension-developer/) | Build, modify, and validate Skedulo Mobile Extensions (MEX): JSON-configured native mobile UIs for the Skedulo Plus app with integrated GraphQL data fetching, multi-step flows, localization, and expressions | `npx skills add Skedulo/agent-skills@mobile-extension-developer` |
 
 ## Contributing
 
