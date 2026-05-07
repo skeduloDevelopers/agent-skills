@@ -3,7 +3,7 @@ name: mobile-extension-developer
 description: Build, modify, and validate Skedulo Mobile Extensions (MEX) for the Skedulo Plus mobile app. MEX forms are JSON-configured native mobile UIs with integrated GraphQL data fetching, expressions, localization, and multi-step flows.
 displayName: Mobile Extensions
 status: available
-category: Frontend
+category: Platform
 featured: false
 pulseComponents:
   - Mobile Extensions
