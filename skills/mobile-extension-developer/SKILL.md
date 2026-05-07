@@ -1,169 +1,132 @@
 ---
 name: mobile-extension-developer
-description: Build, modify, and validate Skedulo Mobile Extensions (MEX) for the Skedulo Plus mobile app. MEX forms are JSON-configured native mobile UIs with integrated GraphQL data fetching, expressions, localization, and multi-step flows.
+description: Use when building, modifying, or deploying Skedulo Plus mobile extensions — `mex_definition` UI pages, `instanceFetch`/`staticFetch` data, mobile-extension artifact JSON, locale resources.
 displayName: Mobile Extensions
 status: available
-category: Platform
+category: Frontend
 featured: false
 pulseComponents:
-  - Mobile Extensions
-  - Skedulo Plus
+  - Skedulo Plus Mobile
 sdks: []
 filePatterns:
-  - "mex_definition/**/*.json"
-  - "upload_config.json"
+  - "**/*.MobileExtension.json"
+  - "**/mex_definition/**"
+  - "**/upload_config.json"
 ---
 
-# Skedulo Mobile Extension (MEX) Skill
+# Skedulo Mobile Extensions Skill
 
-## What Are Skedulo Mobile Extensions (MEX)?
+## Core Principle
 
-MEX is a framework for building native-like mobile forms for the Skedulo Plus app using JSON configuration files. It allows for rich UIs, offline data access, and complex logic without writing platform-specific code (iOS/Android).
+**Never construct a mobile extension from memory.** Every schema (artifact JSON, `upload_config`, `metadata`, `ui_def`, fetch payloads) is non-trivial and easy to hallucinate. Always start from a working example.
 
-## Core Concepts
+## When NOT to use
 
-### Form Structure
+- Web/Horizon extensions — use the relevant Horizon skills.
+- Connected functions — use `connected-function-developer`.
+- Pure `sked` CLI work with no extension changes — use `skedulo-cli` directly.
 
-A MEX form project MUST follow this specific directory structure:
+## Rules
 
-- `upload_config.json`: Basic deployment configuration (located at project root).
-- `mex_definition/`: Folder containing the core form definition.
-    - `ui_def.json`: UI layout and component definitions.
-    - `instanceFetch.json`: Data fetching logic for form-specific data (`formData`).
-    - `staticFetch.json`: Data fetching logic for shared/lookup data (`sharedData`).
-    - `metadata.json`: Form characteristics and visibility rules.
-    - `static_resources/`: Folder for assets.
-        - `locales/`: Folder for localization strings.
-            - `en.json`: Default language file (contains localized keys and their content).
+### Worked examples live in the repo, not this skill
 
-### UI Definition (`ui_def.json`)
+New worked examples → PR against `MobileExtensionExamples`. Examples drift faster than rules; the repo's layout is also what `sked artifacts mobile-extension upsert` consumes.
 
-UI is built using a hierarchy of components organized into pages. A MEX form can consist of 1 to n pages. **CRITICAL: All user-facing labels (titles, captions, placeholders, etc.) must use localized keys defined in `locales/en.json`. Use the PURE KEY string (e.g., `"MyLabel"`) instead of wrapping it in `${...}`.**
+### Clone the examples repo before any extension work
 
-**Root Structure:**
-- `firstPage`: The name of the page to render when the form opens.
-- `pages`: A map of page definitions where the key is the page name.
+1. `git clone https://github.com/skeduloDevelopers/MobileExtensionExamples /tmp/MobileExtensionExamples` (or `git pull` if cloned)
+2. Read the example closest to your use case (table below)
+3. Copy its directory; adapt names/data; preserve structure
 
-**Page Types:**
-Represent the top-level layout structure for a page. Only one page can be rendered at a time.
-- `flat`: For standard forms with various view components. Supports **Steps Mode** for multi-step flows (See [Steps Mode Examples](./references/step-mode-examples.md)).
-- `list`: For rendering lists of items using a template (`itemLayout`).
+| Use case | Start from |
+|---|---|
+| Bare-minimum / starter | `HelloWorld` |
+| View parent record fields | `AccountDetails` |
+| View related list (children/grandchildren of context) | `AccountContacts` |
+| CRUD on a custom object | `AddProducts` |
+| Many-to-many junction (Job ↔ Product) | `JobProducts` |
+| Show/hide by data | `ConditionalRendering` |
+| Read-only viewer | `ReadOnlyExtension` |
+| Junction-record mgmt (attendees) | `JobAttendees` |
+| Picklists / lookup data via `staticFetch` | `ConditionalRendering`, `UIComponentsShowcase`, `JobProducts` |
+| Component reference | `UIComponentsShowcase` |
 
-**Navigation:**
-Navigation between pages is handled by a Routing Engine.
-- **Simple Navigation**: A string representing the target page name.
-- **Complex Navigation (`RoutingPageDef`)**: Allows for conditional routing and data transfer.
-    - `routing`: An array of routing objects with `condition`, `page`, and `transferData`.
-    - `transferData`: An object mapping data to be passed to the next page's `pageData`.
+### Required directory layout
 
-**View Components:**
-The smallest units of the UI, nested within `flat` page or `section`.
-- `Section`: Groups related components.
-- `Text Editor`: Single or multi-line text input.
-- `Select Editor`: Single-select dropdown/list.
-- `Multi Selector Editor`: Multi-select list.
-- `Date Time Editor`: Date and/or time picker.
-- `Address Editor`: Location/Address selector.
-- `Toggle Editor`: Boolean switch.
-- `Signature Editor`: Signature capture.
-- `Attachments Editor`: Photo and file upload.
-- `Read-Only TextView`: Read-only text display.
-- `Message Box`: Info/Warning alert boxes.
-- `Chart View`: Graphical data visualization.
-- `Image View`: Remote image display.
-- `Button Group`: Action buttons.
+CLI is strict. Mismatched names fail silently or cryptically.
 
-### Data Fetching
-
-MEX uses a specialized JSON format to define GraphQL-like data requirements.
-
-**`instanceFetch.json` and `staticFetch.json` Structure:**
-
-```json
-{
-  "type": "GraphQl",
-  "QueryResultKey": {
-    "object": "ObjectName",
-    "fields": [
-      "Field1",
-      "Field2",
-      "Relationship.Field3"
-    ],
-    "filter": "Field1 == '${varName}'",
-    "variables": {
-      "varName": "$job.UID"
-    }
-  }
-}
+```text
+<repo-root>/
+├── <Name>.MobileExtension.json    ← descriptor (deploy target)
+└── <Name>/
+    ├── upload_config.json         ← name, defId, engineVersion
+    └── mex_definition/
+        ├── metadata.json          ← summary, displayOrder, contextObject, revisionCount
+        ├── ui_def.json            ← pages (keyed object) + firstPage
+        ├── instanceFetch.json     ← GraphQL, per-instance
+        ├── staticFetch.json       ← GraphQL, cached, shared
+        └── static_resources/locales/<lang>.json
 ```
 
-- `type`: Must be `"GraphQl"`.
-- `QueryResultKey`: The key under which data will be available in the data context (`formData` or `sharedData`).
-- `object`: The Skedulo object to query.
-- `fields`: Array of fields to retrieve. Supports dot notation for relationships.
-- `filter`: Filter string using variables.
-- `variables`: Mapping of filter variables to context values (e.g., `$job.UID`, `$resource.UID`).
+`defId` MUST match across `<Name>.MobileExtension.json` and `upload_config.json`. `source` in the descriptor is relative to the descriptor file.
 
-### Data Context & Binding
+### Fetch files are GraphQL, not REST
 
-Data is accessed in `ui_def.json` and `en.json` using specialized contexts:
+Both `instanceFetch.json` (per-record, has context UID) and `staticFetch.json` (cached, shared) are GraphQL queries against the Skedulo schema.
 
-- **`formData`**: Accesses data fetched via `instanceFetch.json`. This is the global form state.
-- **`sharedData`**: Accesses data fetched via `staticFetch.json`. Used for lookup data.
-- **`pageData`**: Accesses data local to the current page. When navigating from a `list` to a `flat` page, the selected item is automatically passed as `pageData`. **Use `pageData` for editing items navigated to from a list.**
-- **`item`**: Used ONLY in `en.json` to refer to an individual row item in a `list` page's `itemLayout`.
-- **`it`**: Used ONLY in `metadata.json` (`showIf`, `mandatoryIf`) to refer to the form's context object (e.g., the Job).
+### Picklists in `staticFetch.json` — three patterns
 
-**Data Flow Example**:
-1. A `list` page uses `sourceExpression: "formData.JobProducts"`.
-2. The `itemLayout` references a key in `en.json` that uses `${item.Name}`.
-3. When a row is clicked, `itemClickDestination` navigates to an "Edit" page.
-4. On the "Edit" page, `valueExpression` for an editor should be `"pageData.Name"`. Mutations here are automatically saved back to the original `formData.JobProducts` array.
+Pick one per use case. See examples for full shape:
 
-### Localization (`static_resources/locales/en.json`)
+| Pattern | Use when | Example |
+|---|---|---|
+| `__vocabulary` | Binding to a real Object picklist field — values stay in sync with schema | `ConditionalRendering` |
+| `__predefined` | App-only enums not tied to any schema field | `ConditionalRendering`, `UIComponentsShowcase` |
+| `object` GraphQL query | Reference data from a custom object | `JobProducts` |
 
-Localized keys are used throughout the UI. The JSON file maps keys to actual content:
-```json
-{
-  "FormTitle": "My Awesome Form",
-  "SubmitButton": "Submit Data",
-  "SuccessMessage": "Successfully saved!"
-}
-```
-In `ui_def.json`, these are referenced using the pure key name, e.g., `"title": "FormTitle"`.
+### Validate schema references against the tenant before deploying
 
-**IMPORTANT**: The locale content *itself* can contain expressions, e.g., `"FieldLabel": "${formData.JobDetails.Name}"`.
+Two distinct concerns:
 
-### Metadata (`metadata.json`)
+1. **`mex_definition` file shape** — no offline validator exists. Pre-flight = diff your structure against the closest example. Real shape validation happens on `sked artifacts mobile-extension upsert`.
+2. **Object / field names referenced inside fetches and UI** — validate against the live tenant schema via the CLI:
+   - `sked artifacts custom-object list --json -a <alias>` — confirm exact object names
+   - `sked artifacts custom-field list --objectName <ExactName> --json -a <alias>` — confirm every field your fetch/UI references exists on that object
 
-Defines how the form behaves in the mobile app.
+Doing this **before** deploy catches the most common deploy failures (wrong casing, missing custom field, renamed object). Full rule lives in the `skedulo-cli` skill — read it.
 
-- `summary`: Description shown in the app (Localized Key).
-- `contextObject`: The object the form is attached to (`Jobs`, `Resources`, etc.).
-- `showIf`: Expression determining if the form is visible.
-- `mandatoryIf`: Expression determining if the form is mandatory.
+### `sked` CLI rules live in `skedulo-cli`
 
-### Expressions & Operators
+Read that skill before any `sked` command (alias, `--help`, errors).
 
-MEX supports simple logical and comparison operators in expressions:
-`==`, `!=`, `>`, `>=`, `<`, `<=`, `&&`, `||`, `(...)`.
+## Quick Reference
 
-**Example Expression:**
-`formData.JobDetails.Status == 'Complete' && formData.JobDetails.Priority >= 3`
+| Task | Pattern |
+|---|---|
+| Deploy | `sked artifacts mobile-extension upsert -f <Name>.MobileExtension.json -a <alias>` |
+| List | `sked artifacts mobile-extension list --json -a <alias>` |
+| Inspect | `sked artifacts mobile-extension get --name <Name> --json -a <alias>` |
+| Pull local | `sked artifacts mobile-extension get --name <Name> -o <dir> -a <alias>` |
+| Delete (destructive — confirm) | `sked artifacts mobile-extension delete --name <Name> -a <alias>` |
 
-## Best Practices
+## Common Mistakes
 
-- **Use Localized Keys**: Always use pure string keys for titles, labels, captions, and placeholders. Define them in `mex_definition/static_resources/locales/en.json`.
-- **Flat Hierarchy**: Keep the component hierarchy as flat as possible for better performance.
-- **Explicit Variables**: Always define variables used in filters in the `variables` block.
-- **Proper Directory Structure**: Always follow the `mex_definition/` folder structure.
-- **Skip Custom Functions**: For the current scope, focus on standard MEX features and avoid `customFunction`.
+| Mistake | Fix |
+|---|---|
+| Constructing any JSON file from memory | Clone examples repo. Schemas are non-obvious and vary by component |
+| `defId` differs between artifact JSON and `upload_config.json` | They MUST match exactly |
+| Hardcoded UI strings | Reference keys in `static_resources/locales/<lang>.json` |
+| Designing UI before setting `contextObject` | `metadata.json → contextObject` first; it gates available data |
+| Using `instanceFetch` for shared lookup data | Use `staticFetch` — it's cached |
+| Treating fetch files as REST | Both are GraphQL |
+| `sked` without `-a <alias>` | Always include. See `skedulo-cli` |
+| Referencing field names without verifying | Run `custom-field list --objectName <Name>` against tenant first |
 
-## References
+## Red Flags — STOP and clone the repo
 
-For detailed information on components and data fetching, refer to the following:
-- [UI Components](./references/ui-components.md)
-- [Steps Mode Examples](./references/step-mode-examples.md)
-- [Data Fetching](./references/data-fetching.md)
-- [Metadata & Upload](./references/metadata-upload.md)
-- [Expressions & Binding](./references/expressions-binding.md)
+- About to write `metadata.json` schema from memory
+- Confidently authoring `ui_def.json` page structure without a reference open
+- Time pressure ("just give me the JSON") with no example file in view
+- Producing artifact JSON that doesn't have `metadata.type` or `defId`
+
+All of these mean: pause, `git clone` the examples repo, copy the closest example, then adapt.
