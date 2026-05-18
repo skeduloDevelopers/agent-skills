@@ -4,10 +4,9 @@
   "description": "Give your AI agent Skedulo expertise. Build on Pulse Platform 10x faster.",
   "author": "Skedulo",
   "skills": [
-    "skills/skedulo-cli",
+    "skills/automations-developer",
     "skills/connected-function-developer",
     "skills/skedulo-api-developer",
-    "skills/optimization-extension-developer",
-    "skills/page-builder-column-templates"
+    "skills/optimization-extension-developer"
   ]
 }
