@@ -616,90 +616,13 @@ Custom UI components can call functions via fetch.
 ### Mobile Extensions
 Mobile apps can invoke functions for custom logic.
 
-## Triggered Actions
+## Triggered Actions, Event Queueing, and the @cx Library
 
-Triggered actions fire automatically when Skedulo records are created, updated, or deleted. Two things are required: a **manifest file** that tells Skedulo when and what to send, and a **handler** in your function that processes the payload.
+These topics live in their own focused skills — load the matching one on demand rather than carrying it here:
 
-See the full reference: **[references/triggered-action-handler.md](references/triggered-action-handler.md)**
-
-For handling large record batches without timeouts, see **[references/event-queueing.md](references/event-queueing.md)**.
-
-### Manifest file (`src/triggered-actions/*.triggered-action.json`)
-
-Each triggered action needs a manifest deployed alongside your function:
-
-```json
-{
-  "metadata": { "type": "TriggeredAction" },
-  "name": "job-after-updated",
-  "enabled": true,
-  "trigger": {
-    "type": "object_modified",
-    "schemaName": "Jobs",
-    "filter": "Operation == 'UPDATE' AND (Current.JobStatus != Previous.JobStatus)"
-  },
-  "action": {
-    "type": "call_url",
-    "url": "{{SKEDULO_API_URL}}/function/my-function/my-function/triggered-action/job-after-update",
-    "headers": {
-      "Authorization": "Bearer {{ SKEDULO_USER_TOKEN }}",
-      "sked-function-execution-type": "async"
-    },
-    "query": "{ UID Name JobStatus AccountId }",
-    "previousFields": "{ UID JobStatus }"
-  }
-}
-```
-
-- `trigger.filter` — EQL expression controlling when the action fires. Keep it narrow.
-- `action.query` — fields sent for the **new** record. Your handler only sees what's listed here.
-- `action.previousFields` — fields sent for the **old** record (UPDATE/DELETE only).
-- `sked-function-execution-type: async` — use for operations that may be slow.
-
-### Handler
-
-Use `createTriggeredActionHandler<T>(objectName, handler)` to parse the payload into a typed `TriggerContext`:
-
-```typescript
-export const afterUpdateJobHandler = createTriggeredActionHandler<Jobs>(
-  'Jobs',
-  async ({ data: { newRecords, mapOldRecord } }) => {
-    const statusChanges = newRecords.filter(job => {
-      const old = mapOldRecord[job.UID]
-      return old && old.JobStatus !== job.JobStatus
-    })
-
-    if (!statusChanges.length) {
-      return { status: 200, body: { message: 'No relevant changes, skipping' } }
-    }
-
-    await processStatusChanges(statusChanges)
-    return { status: 200, body: { processed: statusChanges.length } }
-  }
-)
-```
-
-`TriggerContext` provides:
-- `newRecords` — records after the change (empty array for DELETE)
-- `mapOldRecord` — previous state keyed by UID
-- `isInsert / isUpdate / isDelete` — operation flags
-
-Route convention: `POST /triggered-action/{entity-action}` (e.g. `/triggered-action/job-after-update`). The URL in the manifest must match exactly.
-
-### Deploying with the CLI
-
-Always ask for the tenant alias before deploying. Deploy the function first, then the manifest:
-
-```bash
-sked artifacts triggered-action upsert \
-  -f src/triggered-actions/job-after-update.triggered-action.json \
-  -a <alias>
-
-# Verify
-sked artifacts triggered-action list -a <alias> --filter name=job-after-update
-```
-
-See **[references/triggered-action-handler.md](references/triggered-action-handler.md)** for the full CLI reference (upsert, list, get, delete) and the complete deployment workflow.
+- **Triggered actions** (manifests, `createTriggeredActionHandler`, `object_modified` triggers, `POST /triggered-action/*`, deploy CLI) → load the **`connected-function-triggered-actions`** skill.
+- **Event queueing** (large/bursty triggered-action payloads, async queue + worker, bulk enqueue) → load the **`connected-function-event-queue`** skill.
+- **`@cx` shared library** (cx-wellbe-senior — shared models, service factory, object definitions, config across functions) → load the **`connected-function-cx-library`** skill.
 
 ## Resources
 
@@ -707,9 +630,9 @@ See **[references/triggered-action-handler.md](references/triggered-action-handl
 - Function utilities: `@skedulo/function-utilities` npm package
 - GraphQL client: Access via `skedContext.graphQL`
 - Platform docs: Check Skedulo documentation portal
-- Triggered action patterns: [references/triggered-action-handler.md](references/triggered-action-handler.md)
-- Event queueing for large batches: [references/event-queueing.md](references/event-queueing.md)
-- @cx shared library (cx-wellbe-senior): [references/cx-library.md](references/cx-library.md)
+- Triggered actions: load the `connected-function-triggered-actions` skill
+- Event queueing for large batches: load the `connected-function-event-queue` skill
+- `@cx` shared library (cx-wellbe-senior): load the `connected-function-cx-library` skill
 
 ## Working with Skedulo APIs
 
