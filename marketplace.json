@@ -5,7 +5,10 @@
   "author": "Skedulo",
   "skills": [
     "skills/automations-developer",
+    "skills/connected-function-cx-library",
     "skills/connected-function-developer",
+    "skills/connected-function-event-queue",
+    "skills/connected-function-triggered-actions",
     "skills/skedulo-api-developer",
     "skills/optimization-extension-developer"
   ]
