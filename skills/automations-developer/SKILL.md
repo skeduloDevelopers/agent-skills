@@ -1,6 +1,6 @@
 ---
 name: automations-developer
-description: This skill enables Claude to create, edit, and deploy Skedulo Pulse automations via the automation-service REST API. Captures the full action/trigger vocabulary, the 9 undocumented schema corrections required to actually get automations to load, JSONata-in-Step-Functions gotchas, and proven workflow patterns. Use any time the user wants to author or edit an automation, debug a 400/500 from the automation-service, or translate a customer webhook/triggered-action into the automation platform.
+description: This skill enables Claude to create, edit, and deploy Skedulo Pulse automations via the Automations REST API. Captures the full action/trigger vocabulary, the 9 undocumented schema corrections required to actually get automations to load, JSONata gotchas, and proven workflow patterns. Use any time the user wants to author or edit an automation, debug a 400/500 from the Automations API, or translate a customer webhook/triggered-action into the automation platform.
 ---
 
 # Skedulo Automations Developer Skill
@@ -25,7 +25,7 @@ Skedulo Automations are AWS Step Functions state machines authored as JSON, trig
 
 ## 1. Architecture in one paragraph
 
-The automation-service exposes a NestJS REST API on every tenant's `<base_url.api>` host. Each automation is persisted as `{name, description, trigger, workflow, status}`. Triggers fire on Kafka change events (objectModified) — the runtime resolves `shouldTrigger`, then dispatches the workflow as a Step Functions state machine. Tasks invoke a per-action Lambda via the `automation-engine-invoker`. JSONata expressions wrapped in `{% ... %}` are evaluated by Step Functions' built-in JSONata engine. The platform auto-injects `QueryLanguage: "JSONata"` and an `Assign` block per Task; you don't set those.
+The Skedulo Automations service exposes a REST API on every tenant's base URL. Each automation is persisted as `{name, description, trigger, workflow, status}`. Triggers fire on platform change events (objectModified) — the runtime evaluates a trigger condition, then dispatches the workflow to an orchestration service. Tasks invoke a per-action handler. JSONata expressions wrapped in `{% ... %}` are evaluated by the platform's built-in JSONata engine. The platform auto-injects `QueryLanguage: "JSONata"` and an `Assign` block per Task; you don't set those.
 
 ---
 
@@ -43,11 +43,8 @@ https://api.skedulo.com            # production tenants
 ### Auth
 
 All requests use `Authorization: Bearer <jwt>`. Get the token from:
-- Your Insomnia `Environment.db` under `~/Library/Application Support/Insomnia/` — look for an env named `dev-standalone`, `prod-*`, or whatever tenant you're targeting; field is `token.access`
-- The `sked` CLI (`sked auth print-token` or similar)
-- An OAuth2 flow against the tenant's auth service
-
-A reusable shim that reads from Insomnia at runtime is helpful — see the "Sourceable env shim" pattern in §15.
+- The `sked` CLI: `sked auth print-token`
+- An OAuth2 interactive flow against the tenant's OAuth2 endpoint
 
 ### Endpoints
 
@@ -62,7 +59,6 @@ A reusable shim that reads from Insomnia at runtime is helpful — see the "Sour
 | `POST` | `/automations/<name>/disable` | Disable (status → disabled) |
 | `POST` | `/automations/<name>/execute` | Manually invoke for testing |
 | `GET` | `/automations/logs` | Tail recent execution logs |
-| `GET` | `/automations/internal/logs/<tenantId>` | Tenant-scoped logs (admin) |
 | `GET` | `/automations/actions` | Live list of available actions on this tenant |
 | `GET` | `/automations/swagger/v3-json` | OpenAPI JSON for the full surface |
 
@@ -108,11 +104,11 @@ Required top-level shape for `POST /automations/`:
 
 ## 4. Trigger types — what's implemented today
 
-The `TriggerType` enum at `automation-service/src/shared/enums/trigger-type.ts` lists two types, but only one is wired end-to-end:
+The trigger configuration supports two types, but only one is wired end-to-end:
 
 ### `objectModified` — IMPLEMENTED ✓
 
-Fires on Kafka CDC events from any data-model record write.
+Fires on platform change events from any data-model record write.
 
 ```json
 {
@@ -143,7 +139,7 @@ There is no offset-from-field deferred trigger and no cron-style scheduled trigg
 
 ## 5. Action vocabulary
 
-The platform ships ~34 actions across 8 categories. The canonical list is at `automation-service/src/actions/builtin/**/*.action.ts` in the platform repo, or live at `GET /automations/actions`.
+The platform ships ~34 actions across 8 categories. The canonical live list is available at `GET /automations/actions`.
 
 ### Quick reference (as of 2026-04)
 
@@ -191,7 +187,7 @@ $<assignedVar>.result.data.<actual-data-shape>
 
 `http` is the documented exception — its response is `{statusCode, headers, body}` directly without a `result` envelope. Reach for `body` directly: `$<assignedVar>.body`.
 
-When you read an action's source file in `automation-service/src/actions/builtin/`, look for `response: actionResponseSchema(...)` — that means wrapped. `http.action.ts` defines `response` inline without that helper — that means unwrapped.
+Data actions are wrapped via `actionResponseSchema()`. The `http` action is the documented exception — its response is defined inline without the wrapper envelope.
 
 ---
 
@@ -281,7 +277,7 @@ The runtime exposes the trigger event as a top-level `$trigger`. Don't use `$sta
 The platform auto-generates an `Assign` block for each Task on save, binding the state's result to a variable named `toCamelCase(stateName)`:
 
 ```typescript
-// Same toCamelCase used by automation-service/src/step-function/step-function-adapter/to-camel-case.ts
+// toCamelCase logic used by the platform to generate Assign variable names
 function toCamelCase(input: string): string {
   const tokens = input.split(/[^a-zA-Z0-9]+/).filter(Boolean)
   const words = tokens.flatMap(token =>
@@ -759,45 +755,20 @@ When a user asks for any of these: explain the gap, propose either (a) staying i
 
 ---
 
-## 14. Sourceable env shim pattern
+## 14. Setting up your environment
 
-When working against a tenant repeatedly, a sourceable shim that reads tokens from Insomnia at runtime is easier than copy-pasting JWTs:
+When working against a tenant repeatedly, use the `sked` CLI to manage authentication:
 
 ```bash
-#!/usr/bin/env bash
-# load-env.sh — gitignore this file.
-INSOMNIA_DB="$HOME/Library/Application Support/Insomnia/insomnia.Environment.db"
+# Authenticate with your tenant
+sked auth login
 
-eval "$(python3 - <<'PYEOF'
-import json, os, sys
-db = os.path.expanduser("~/Library/Application Support/Insomnia/insomnia.Environment.db")
-target_name = os.environ.get("INSOMNIA_ENV", "dev-standalone")
-latest = {}
-with open(db) as f:
-    for line in f:
-        try:
-            o = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        rid = o.get("_id", "")
-        if rid and (rid not in latest or o.get("modified", 0) > latest[rid].get("modified", 0)):
-            latest[rid] = o
-target = next((o for o in latest.values() if (o.get("name") or "").lower() == target_name.lower()), None)
-if not target:
-    print(f"echo 'load-env.sh: env {target_name!r} not found' >&2", file=sys.stdout)
-    sys.exit(0)
-data = target.get("data") or {}
-base_url = (data.get("base_url") or {}).get("api", "")
-access = (data.get("token") or {}).get("access", "") if isinstance(data.get("token"), dict) else ""
-print(f"export AUTOMATION_SERVICE_URL='{base_url}'")
-print(f"export AUTOMATION_SERVICE_TOKEN='{access}'")
-print(f"echo 'load-env.sh: pointed at {target_name} ({base_url}, token {len(access)} chars)'")
-PYEOF
-)"
+# Export the token for use in API calls
+export AUTOMATION_SERVICE_TOKEN=$(sked auth print-token)
+export AUTOMATION_SERVICE_URL="https://api.skedulo.com"  # adjust per tenant
 ```
 
-Usage: `INSOMNIA_ENV=prod-temp source ./load-env.sh`. Re-source after re-authenticating in Insomnia.
-
+Re-run `sked auth login` when your token expires.
 ---
 
 ## 15. Cleanup
@@ -832,9 +803,7 @@ curl -s -H "Authorization: Bearer $AUTOMATION_SERVICE_TOKEN" \
 ## 16. References
 
 - **Source of truth (when this skill is stale):**
-  - `automation-service` repo on GitHub — `src/actions/builtin/**` for action definitions, `src/automations/dto/**` for DTOs
-  - `automation-engine-invoker` repo — per-action implementations
-  - Live `GET /automations/swagger/v3-json` on the target tenant
+  - Live `GET /automations/swagger/v3-json` on the target tenant — this always reflects the current API surface
 - **In-product docs:** Skedulo developer docs (search "automations") — these can lag the API
 - **Step Functions JSONata:** AWS docs at `docs.aws.amazon.com/step-functions/latest/dg/transforming-data.html` — but note the platform's implementation diverges (no `\'`, parens-required blocks)
 - **Companion skill:** `connected-function-developer` — when an automation can't express the case and you need a serverless API instead
