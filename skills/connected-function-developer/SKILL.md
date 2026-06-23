@@ -1,20 +1,6 @@
 ---
 name: connected-function-developer
 description: This skill enables Claude to build, modify, and deploy Skedulo custom functions. Custom functions are server-side APIs that run on Skedulo's platform without requiring users to manage their own infrastructure.
-displayName: Connected Functions
-status: available
-category: Backend
-featured: true
-pulseComponents:
-  - Connected Functions
-  - Skedulo API
-sdks:
-  - "@skedulo/sdk-utilities"
-  - "@skedulo/function-utilities"
-  - "@skedulo/pulse-solution-services"
-filePatterns:
-  - "src/functions/**/*.ts"
-  - "sked.proj.json"
 ---
 
 # Skedulo Custom Functions Skill
@@ -34,7 +20,7 @@ Custom functions are Skedulo's serverless API platform. They provide stateless, 
 ### Function Structure
 
 Every function has this file structure:
-```text
+```
 my-function/
 ├── sked.proj.json       # Function configuration and settings
 ├── state.json           # Metadata for CLI operations
@@ -57,7 +43,7 @@ This file defines the function configuration:
   "version": "2",
   "name": "my-function-name",
   "description": "Clear description of what this function does",
-  "runtime": "nodejs22.x",
+  "runtime": "nodejs24.x",
   "settings": {
     "configVars": [
       {
@@ -76,7 +62,7 @@ This file defines the function configuration:
 - `version`: Always "2"
 - `name`: Lowercase with hyphens, describes purpose
 - `description`: Clear explanation for administrators
-- `runtime`: Use "nodejs22.x"
+- `runtime`: Use "nodejs18.x"
 - `settings.configVars`: Array of configuration variables
 
 ### Configuration Variables
@@ -477,7 +463,7 @@ import { ExecutionContext } from "@skedulo/pulse-solution-services";
 ### Local Testing with .env
 
 Create `.env` file for local config vars:
-```dotenv
+```
 STRIPE_API_KEY=sk_test_xxxxx
 WEBHOOK_SECRET=whsec_xxxxx
 API_ENDPOINT=https://api.example.com
@@ -630,12 +616,100 @@ Custom UI components can call functions via fetch.
 ### Mobile Extensions
 Mobile apps can invoke functions for custom logic.
 
+## Triggered Actions
+
+Triggered actions fire automatically when Skedulo records are created, updated, or deleted. Two things are required: a **manifest file** that tells Skedulo when and what to send, and a **handler** in your function that processes the payload.
+
+See the full reference: **[references/triggered-action-handler.md](references/triggered-action-handler.md)**
+
+For handling large record batches without timeouts, see **[references/event-queueing.md](references/event-queueing.md)**.
+
+### Manifest file (`src/triggered-actions/*.triggered-action.json`)
+
+Each triggered action needs a manifest deployed alongside your function:
+
+```json
+{
+  "metadata": { "type": "TriggeredAction" },
+  "name": "job-after-updated",
+  "enabled": true,
+  "trigger": {
+    "type": "object_modified",
+    "schemaName": "Jobs",
+    "filter": "Operation == 'UPDATE' AND (Current.JobStatus != Previous.JobStatus)"
+  },
+  "action": {
+    "type": "call_url",
+    "url": "{{SKEDULO_API_URL}}/function/my-function/my-function/triggered-action/job-after-update",
+    "headers": {
+      "Authorization": "Bearer {{ SKEDULO_USER_TOKEN }}",
+      "sked-function-execution-type": "async"
+    },
+    "query": "{ UID Name JobStatus AccountId }",
+    "previousFields": "{ UID JobStatus }"
+  }
+}
+```
+
+- `trigger.filter` — EQL expression controlling when the action fires. Keep it narrow.
+- `action.query` — fields sent for the **new** record. Your handler only sees what's listed here.
+- `action.previousFields` — fields sent for the **old** record (UPDATE/DELETE only).
+- `sked-function-execution-type: async` — use for operations that may be slow.
+
+### Handler
+
+Use `createTriggeredActionHandler<T>(objectName, handler)` to parse the payload into a typed `TriggerContext`:
+
+```typescript
+export const afterUpdateJobHandler = createTriggeredActionHandler<Jobs>(
+  'Jobs',
+  async ({ data: { newRecords, mapOldRecord } }) => {
+    const statusChanges = newRecords.filter(job => {
+      const old = mapOldRecord[job.UID]
+      return old && old.JobStatus !== job.JobStatus
+    })
+
+    if (!statusChanges.length) {
+      return { status: 200, body: { message: 'No relevant changes, skipping' } }
+    }
+
+    await processStatusChanges(statusChanges)
+    return { status: 200, body: { processed: statusChanges.length } }
+  }
+)
+```
+
+`TriggerContext` provides:
+- `newRecords` — records after the change (empty array for DELETE)
+- `mapOldRecord` — previous state keyed by UID
+- `isInsert / isUpdate / isDelete` — operation flags
+
+Route convention: `POST /triggered-action/{entity-action}` (e.g. `/triggered-action/job-after-update`). The URL in the manifest must match exactly.
+
+### Deploying with the CLI
+
+Always ask for the tenant alias before deploying. Deploy the function first, then the manifest:
+
+```bash
+sked artifacts triggered-action upsert \
+  -f src/triggered-actions/job-after-update.triggered-action.json \
+  -a <alias>
+
+# Verify
+sked artifacts triggered-action list -a <alias> --filter name=job-after-update
+```
+
+See **[references/triggered-action-handler.md](references/triggered-action-handler.md)** for the full CLI reference (upsert, list, get, delete) and the complete deployment workflow.
+
 ## Resources
 
 - Skedulo CLI: Run `sked function generate --help`
 - Function utilities: `@skedulo/function-utilities` npm package
 - GraphQL client: Access via `skedContext.graphQL`
 - Platform docs: Check Skedulo documentation portal
+- Triggered action patterns: [references/triggered-action-handler.md](references/triggered-action-handler.md)
+- Event queueing for large batches: [references/event-queueing.md](references/event-queueing.md)
+- @cx shared library (cx-wellbe-senior): [references/cx-library.md](references/cx-library.md)
 
 ## Working with Skedulo APIs
 
