@@ -36,6 +36,7 @@ The Skedulo Automations service exposes a REST API on every tenant's base URL. E
 Per-tenant. Read from the tenant's Insomnia environment, the platform UI URL bar, or your CLI config. Format: `https://<tenant-host>` — automations live under `/automations/`.
 
 ```text
+https://dev-api.test.skl.io        # dev-standalone
 https://api.skedulo.com            # production tenants
 ```
 
@@ -48,7 +49,7 @@ All requests use `Authorization: Bearer <jwt>`. Get the token from:
 ### Endpoints
 
 | Method | Path | Purpose |
-|--------|------|----------|
+|--------|------|---------|
 | `GET` | `/automations/` | List all automations on the tenant |
 | `POST` | `/automations/` | Create an automation |
 | `GET` | `/automations/<name>` | Fetch by URL-encoded name |
@@ -165,7 +166,7 @@ curl -s -H "Authorization: Bearer $TOKEN" "$BASE/automations/actions" | jq -r '.
 ### Most-common action argument shapes
 
 | Action | Required args | Output shape |
-|--------|---------------|---------------|
+|--------|---------------|--------------|
 | `echo` | `message` | wrapped: `{result: {data: {message}}}` |
 | `http` | `url` (also `method`, `headers`, `body`) | **NOT wrapped:** `{statusCode, headers, body}` directly |
 | `query-record` | `objectType`, `id`, `fields[]` (dotted paths OK; **no hasMany**) | wrapped: `{result: {data: <record>}}` |
@@ -319,7 +320,7 @@ Step Functions' JSONata rejects `\'` even though the public spec recognises it. 
 **Wrong** (single-quoted JSONata, with backslash-escaped single quotes — fails):
 
 ```jsonata
-'query { jobs(filter: \"AccountId == \\\'\'' & $accountId & '\'\\\"\")") { ... } }'
+'query { jobs(filter: \"AccountId == \\'' & $accountId & '\\'\") { ... } }'
 ```
 
 **Right** (double-quoted JSONata, single quotes literal):
@@ -357,7 +358,7 @@ This adds 1 node + 1 expression per checked field. A native field-change predica
 
 ## 8. The pre-flight checklist
 
-These 9 corrections are not in any DTO file. Apply ALL of them before every POST.
+These 9 corrections are not in any DTO file. They came from iterating on real load failures during the cx-* validation experiment. Apply ALL of them before every POST.
 
 | # | Correction | Wrong → Right |
 |---|------------|---------------|
@@ -422,9 +423,9 @@ curl -s -H "Authorization: Bearer $AUTOMATION_SERVICE_TOKEN" \
 # expect "disabled"
 ```
 
-### Step 6: Inspect in the platform UI
+### Step 6: Inspect in the Phoenix UI
 
-Open your tenant's platform UI, navigate to the Automations app, search for your name. Confirm:
+Open `<base_url.ui>` (e.g. `https://platform.test.skl.io`), navigate to the Automations app, search for your name. Confirm:
 
 - Visual graph renders correctly
 - Property panels show the `Arguments`/`Condition` JSONata cleanly
@@ -548,7 +549,7 @@ Trigger fires on record change → query related records → apply same fields t
           "Type": "Task",
           "Resource": "action:graphql-query",
           "Arguments": {
-            "query": "{% ($accountId := $trigger.current.UID; $cutoff := $trigger.current.DischargeDate ? $trigger.current.DischargeDate : $now(); \"query { jobs(filter: \\\"JobStatus != 'Cancelled' AND JobStatus != 'Complete' AND AccountId == '\" & $accountId & \"' AND Start >= \" & $cutoff & \"\\\"\") { edges { node { UID } } } }\") %}",
+            "query": "{% ($accountId := $trigger.current.UID; $cutoff := $trigger.current.DischargeDate ? $trigger.current.DischargeDate : $now(); \"query { jobs(filter: \\\"JobStatus != 'Cancelled' AND JobStatus != 'Complete' AND AccountId == '\" & $accountId & \"' AND Start >= \" & $cutoff & \"\\\") { edges { node { UID } } } }\") %}",
             "variables": {}
           },
           "Next": "DecideWhetherToCancel"
@@ -626,7 +627,7 @@ When a record's flag changes, demote siblings and update parent.
           "Type": "Task",
           "Resource": "action:graphql-query",
           "Arguments": {
-            "query": "{% ($a := $trigger.current.AccountId; $u := $trigger.current.UID; \"query { locations(filter: \\\"AccountId == '\" & $a & \"' AND UID != '\" & $u & \"' AND Default == true\\\"\") { edges { node { UID } } } }\") %}",
+            "query": "{% ($a := $trigger.current.AccountId; $u := $trigger.current.UID; \"query { locations(filter: \\\"AccountId == '\" & $a & \"' AND UID != '\" & $u & \"' AND Default == true\\\") { edges { node { UID } } } }\") %}",
             "variables": {}
           },
           "Next": "DemoteIfAny"
@@ -768,7 +769,6 @@ export AUTOMATION_SERVICE_URL="https://api.skedulo.com"  # adjust per tenant
 ```
 
 Re-run `sked auth login` when your token expires.
-
 ---
 
 ## 15. Cleanup
