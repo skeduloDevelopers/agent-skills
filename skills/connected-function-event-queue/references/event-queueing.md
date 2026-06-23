@@ -270,7 +270,9 @@ export class ConfigurationVariables {
 
   static init(skedContext: SkedContext): void {
     const raw = skedContext?.configVars?.getVariableValue('MAX_JOB_ALLOCATIONS_PER_QUEUE')
-    ConfigurationVariables.MAX_JOB_ALLOCATIONS_PER_QUEUE = raw ? parseInt(raw, 10) : 5
+    const parsed = raw ? parseInt(raw, 10) : 5
+    ConfigurationVariables.MAX_JOB_ALLOCATIONS_PER_QUEUE =
+      Number.isInteger(parsed) && parsed > 0 ? parsed : 5
   }
 }
 ```

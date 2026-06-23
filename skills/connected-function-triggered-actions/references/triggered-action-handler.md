@@ -307,7 +307,6 @@ export const notifyBeforeJobStartHandler = createTriggeredActionHandler<Jobs>(
 Your function receives a POST body of type `TriggerActionPayloadItem<T>[]`:
 
 ```typescript
-import { TriggerActionPayloadItem, OPERATION } from '@skedulo/pulse-solutions-framework'
 
 // Each item represents one changed record
 interface TriggerActionPayloadItem<T extends BaseModel> {
@@ -391,8 +390,9 @@ export const createTriggeredActionHandler = <T extends BaseModel>(
       operation === OPERATION_DELETE ? [] : payload.map(item => item.data[objectName])
 
     const mapOldRecord = payload.reduce((acc: Record<string, T>, item) => {
-      const recordId = item.previous?.UID || item.data[objectName].UID
-      acc[recordId] = item.previous
+      if (item.previous) {
+        acc[item.previous.UID] = item.previous
+      }
       return acc
     }, {})
 
