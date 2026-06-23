@@ -709,7 +709,7 @@ See **[references/triggered-action-handler.md](references/triggered-action-handl
 - Platform docs: Check Skedulo documentation portal
 - Triggered action patterns: [references/triggered-action-handler.md](references/triggered-action-handler.md)
 - Event queueing for large batches: [references/event-queueing.md](references/event-queueing.md)
-- @cx shared library (cx-wellbe-senior): [references/cx-library.md](references/cx-library.md)
+- @cx shared library: [references/cx-library.md](references/cx-library.md)
 
 ## Working with Skedulo APIs
 
