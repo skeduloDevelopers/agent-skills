@@ -49,7 +49,7 @@ All requests use `Authorization: Bearer <jwt>`. Get the token from:
 ### Endpoints
 
 | Method | Path | Purpose |
-|--------|------|----------|
+|--------|------|---------|
 | `GET` | `/automations/` | List all automations on the tenant |
 | `POST` | `/automations/` | Create an automation |
 | `GET` | `/automations/<name>` | Fetch by URL-encoded name |
@@ -166,7 +166,7 @@ curl -s -H "Authorization: Bearer $TOKEN" "$BASE/automations/actions" | jq -r '.
 ### Most-common action argument shapes
 
 | Action | Required args | Output shape |
-|--------|---------------|---------------|
+|--------|---------------|--------------|
 | `echo` | `message` | wrapped: `{result: {data: {message}}}` |
 | `http` | `url` (also `method`, `headers`, `body`) | **NOT wrapped:** `{statusCode, headers, body}` directly |
 | `query-record` | `objectType`, `id`, `fields[]` (dotted paths OK; **no hasMany**) | wrapped: `{result: {data: <record>}}` |
@@ -320,7 +320,7 @@ Step Functions' JSONata rejects `\'` even though the public spec recognises it. 
 **Wrong** (single-quoted JSONata, with backslash-escaped single quotes — fails):
 
 ```jsonata
-'query { jobs(filter: \"AccountId == \\\'\'' & $accountId & '\'\\\'\") { ... } }'
+'query { jobs(filter: \"AccountId == \\'' & $accountId & '\\'\") { ... } }'
 ```
 
 **Right** (double-quoted JSONata, single quotes literal):
@@ -549,7 +549,7 @@ Trigger fires on record change → query related records → apply same fields t
           "Type": "Task",
           "Resource": "action:graphql-query",
           "Arguments": {
-            "query": "{% ($accountId := $trigger.current.UID; $cutoff := $trigger.current.DischargeDate ? $trigger.current.DischargeDate : $now(); \"query { jobs(filter: \\\"JobStatus != 'Cancelled' AND JobStatus != 'Complete' AND AccountId == '\" & $accountId & \"' AND Start >= \" & $cutoff & \"\\\"\") { edges { node { UID } } } }\") %}",
+            "query": "{% ($accountId := $trigger.current.UID; $cutoff := $trigger.current.DischargeDate ? $trigger.current.DischargeDate : $now(); \"query { jobs(filter: \\\"JobStatus != 'Cancelled' AND JobStatus != 'Complete' AND AccountId == '\" & $accountId & \"' AND Start >= \" & $cutoff & \"\\\") { edges { node { UID } } } }\") %}",
             "variables": {}
           },
           "Next": "DecideWhetherToCancel"
@@ -627,7 +627,7 @@ When a record's flag changes, demote siblings and update parent.
           "Type": "Task",
           "Resource": "action:graphql-query",
           "Arguments": {
-            "query": "{% ($a := $trigger.current.AccountId; $u := $trigger.current.UID; \"query { locations(filter: \\\"AccountId == '\" & $a & \"' AND UID != '\" & $u & \"' AND Default == true\\\"\") { edges { node { UID } } } }\") %}",
+            "query": "{% ($a := $trigger.current.AccountId; $u := $trigger.current.UID; \"query { locations(filter: \\\"AccountId == '\" & $a & \"' AND UID != '\" & $u & \"' AND Default == true\\\") { edges { node { UID } } } }\") %}",
             "variables": {}
           },
           "Next": "DemoteIfAny"
