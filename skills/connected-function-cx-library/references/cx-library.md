@@ -200,7 +200,7 @@ const resolveDataService = <T extends BaseModel>(objectName: string) => {
 
     let service
     switch (objectName) {
-      case 'JobTemplateService':
+      case 'Jobs':
         service = createJobTemplateService()
         break
       default:
@@ -574,6 +574,7 @@ const config: Config = {
   roots: ['<rootDir>'],
   testMatch: ['**/__tests__/**/*.test.ts'],
   moduleNameMapper: {
+    '^@cx/(.*)$': '<rootDir>/src/cx/$1',
     '^@skedulo/pulse-solutions-framework$': '<rootDir>/__mocks__/pulse-solutions-framework.ts'
   },
   collectCoverageFrom: ['**/*.ts', '!**/*.d.ts', '!**/__tests__/**', '!**/node_modules/**'],

@@ -391,8 +391,9 @@ export const createTriggeredActionHandler = <T extends BaseModel>(
       operation === OPERATION_DELETE ? [] : payload.map(item => item.data[objectName])
 
     const mapOldRecord = payload.reduce((acc: Record<string, T>, item) => {
-      const recordId = item.previous?.UID || item.data[objectName].UID
-      acc[recordId] = item.previous
+      if (item.previous) {
+        acc[item.previous.UID] = item.previous
+      }
       return acc
     }, {})
 
