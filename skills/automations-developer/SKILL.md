@@ -769,7 +769,6 @@ export AUTOMATION_SERVICE_URL="https://api.skedulo.com"  # adjust per tenant
 ```
 
 Re-run `sked auth login` when your token expires.
-
 ---
 
 ## 15. Cleanup
