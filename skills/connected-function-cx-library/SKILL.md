@@ -1,6 +1,6 @@
 ---
 name: connected-function-cx-library
-description: Structure shared code across all connected functions in a Skedulo project using the `@cx` shared library pattern (a.k.a. cx-wellbe-senior). Use this skill when working in a project that has (or should have) a `src/cx/` shared library symlinked into each function — typed models, a service factory, object definitions, centralized configuration management, and date utilities — or when the user mentions `@cx`, the cx library, or cross-function shared code.
+description: Structure shared code across all connected functions in a Skedulo project using the `@cx` shared library pattern. Use this skill when working in a project that has (or should have) a `src/cx/` shared library symlinked into each function — typed models, a service factory, object definitions, centralized configuration management, and date utilities — or when the user mentions `@cx`, the cx library, or cross-function shared code.
 ---
 
 # Connected Function — @cx Shared Library
