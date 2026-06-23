@@ -1,6 +1,6 @@
 ---
 name: automations-developer
-description: This skill enables Claude to create, edit, and deploy Skedulo Pulse automations via the Automations REST API. Captures the full action/trigger vocabulary, the 9 undocumented schema corrections required to actually get automations to load, JSONata gotchas, and proven workflow patterns. Use any time the user wants to author or edit an automation, debug a 400/500 from the Automations API, or translate a customer webhook/triggered-action into the automation platform.
+description: This skill enables Claude to create, edit, and deploy Skedulo Pulse automations via the Automations REST API. Captures the full action/trigger vocabulary, the 9 undocumented schema corrections required to actually get automations to load, JSONata-in-Step-Functions gotchas, and proven workflow patterns. Use any time the user wants to author or edit an automation, debug a 400/500 from the Automations API, or translate a customer webhook/triggered-action into the automation platform.
 ---
 
 # Skedulo Automations Developer Skill
