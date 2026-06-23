@@ -187,7 +187,7 @@ resolveDataService(objectName)
 ### service-factory.ts
 
 ```typescript
-import { BaseModel, createJobTemplateService } from '@skedulo/pulse-solutions-framework'
+import { BaseModel } from '@skedulo/pulse-solutions-framework'
 import { camelCase } from 'lodash'
 import { createDataService } from './data-service'
 import * as objectServices from './object-services'
@@ -197,16 +197,7 @@ let engineContext = new Map<string, any>()
 const resolveDataService = <T extends BaseModel>(objectName: string) => {
   if (!engineContext.has(objectName)) {
     const dataServiceKey = `${camelCase(objectName)}Service` as keyof typeof objectServices
-
-    let service
-    switch (objectName) {
-      case 'JobTemplateService':
-        service = createJobTemplateService()
-        break
-      default:
-        service = objectServices[dataServiceKey] || createDataService<T>(objectName)
-    }
-
+    const service = objectServices[dataServiceKey] ?? createDataService<T>(objectName)
     engineContext.set(objectName, service)
   }
 
