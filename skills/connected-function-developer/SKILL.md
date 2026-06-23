@@ -622,7 +622,7 @@ These topics live in their own focused skills — load the matching one on deman
 
 - **Triggered actions** (manifests, `createTriggeredActionHandler`, `object_modified` triggers, `POST /triggered-action/*`, deploy CLI) → load the **`connected-function-triggered-actions`** skill.
 - **Event queueing** (large/bursty triggered-action payloads, async queue + worker, bulk enqueue) → load the **`connected-function-event-queue`** skill.
-- **`@cx` shared library** (cx-wellbe-senior — shared models, service factory, object definitions, config across functions) → load the **`connected-function-cx-library`** skill.
+- **`@cx` shared library** → load the **`connected-function-cx-library`** skill.
 
 ## Resources
 
@@ -632,7 +632,7 @@ These topics live in their own focused skills — load the matching one on deman
 - Platform docs: Check Skedulo documentation portal
 - Triggered actions: load the `connected-function-triggered-actions` skill
 - Event queueing for large batches: load the `connected-function-event-queue` skill
-- `@cx` shared library (cx-wellbe-senior): load the `connected-function-cx-library` skill
+- `@cx` shared library: load the `connected-function-cx-library` skill
 
 ## Working with Skedulo APIs
 
