@@ -200,7 +200,7 @@ const resolveDataService = <T extends BaseModel>(objectName: string) => {
 
     let service
     switch (objectName) {
-      case 'JobTemplateService':
+      case 'Jobs':
         service = createJobTemplateService()
         break
       default:
