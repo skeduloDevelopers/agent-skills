@@ -267,10 +267,13 @@ Hard-coded chunk sizes become a problem when object complexity varies by tenant.
 ```typescript
 export class ConfigurationVariables {
   static MAX_JOB_ALLOCATIONS_PER_QUEUE: number = 5
+  static SKEDULO_API_URL: string = 'https://api.skedulo.com'
 
   static init(skedContext: SkedContext): void {
     const raw = skedContext?.configVars?.getVariableValue('MAX_JOB_ALLOCATIONS_PER_QUEUE')
     ConfigurationVariables.MAX_JOB_ALLOCATIONS_PER_QUEUE = raw ? parseInt(raw, 10) : 5
+    ConfigurationVariables.SKEDULO_API_URL =
+      skedContext?.configVars?.getVariableValue('SKEDULO_API_URL') || 'https://api.skedulo.com'
   }
 }
 ```
