@@ -7,6 +7,15 @@
     "skills/automations-developer",
     "skills/connected-function-developer",
     "skills/skedulo-api-developer",
-    "skills/optimization-extension-developer"
+    "skills/horizon-list-config-developer",
+    "skills/horizon-page-developer",
+    "skills/mex-custom-function-builder",
+    "skills/mex-developer",
+    "skills/mexwex-developer",
+    "skills/object-models-developer",
+    "skills/optimization-extension-developer",
+    "skills/triggered-actions-developer",
+    "skills/user-role-developer",
+    "skills/webhooks-developer"
   ]
 }
