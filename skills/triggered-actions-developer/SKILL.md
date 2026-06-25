@@ -370,7 +370,7 @@ When using the CLI (`upsert`), this isn't a concern — the local state file is 
 
 #### `{{ SKEDULO_USER_TOKEN }}`
 
-A reserved header template token. When the trigger fired due to a user-initiated change, the platform substitutes the initiating user's access token at fire time. Useful when the call_url target is a Connected Function or external service that needs to act *as* the initiating user (respecting their permissions and audit identity).
+A reserved header template token. When the trigger fired due to a user-initiated change, the platform substitutes the initiating user's access token at fire time. Use it only when the `call_url` target is a **trusted first-party Connected Function** that needs to act *as* the initiating user (respecting their permissions and audit identity). Do not forward it to arbitrary external services — it is a live bearer credential, and sending it off-platform is a credential-leak risk.
 
 `SKEDULO_USER_TOKEN` is also a reserved configuration-variable name — you cannot create a config var with this name.
 

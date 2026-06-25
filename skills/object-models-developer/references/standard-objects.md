@@ -1408,7 +1408,7 @@ Every standard object has the following read-only system fields, populated autom
 | Field | Type | Notes |
 |---|---|---|
 | `Name` | Text | |
-| `Classification` | Picklist | Values: `Global`, `Human`, `Asset`. [immutable picklist — cannot be modified] Restricts which `ResourceType` the tag applies to. |
+| `Classification` | Picklist | Values: `Global`, `Human`, `Asset`. [immutable picklist — cannot be modified] Restricts which `ResourceType` the tag applies to (`Human` → `Person` resources, `Asset` → `Asset` resources, `Global` → any). |
 | `Type` | Picklist | Values: `Skill`. Customizable — add custom tag categories here. |
 
 **Parents** (this row points to ONE of these — outbound Lookups):

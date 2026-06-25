@@ -672,7 +672,9 @@ export const afterUpdateJobHandler = createTriggeredActionHandler<Jobs>(
     const failed = results.filter(r => r.status === 'failed')
 
     return {
-      status: failed.length ? 207 : 200,  // 207 Multi-Status for partial failure
+      // Non-2xx so the platform retries; any 2xx (even 207) counts as success and
+      // silently drops the failures. Retries re-run the whole payload — keep handlers idempotent.
+      status: failed.length ? 500 : 200,
       body: {
         operation: 'UPDATE',
         totalRecords: triggerContext.newRecords.length,
@@ -685,12 +687,12 @@ export const afterUpdateJobHandler = createTriggeredActionHandler<Jobs>(
 
 ### Feature flags via `ConfigurationVariables`
 
-The `enabled` field can be a static boolean **or** a function. Use the function form when reading from `ConfigurationVariables`, because module imports happen at function cold start — **before** `initConfigVars(skedContext)` runs inside the request.
+The `enabled` field can be a static boolean **or** a function. Use the function form when reading from `ConfigurationVariables`: the registry literal is evaluated at module load — **before** `initConfigVars(skedContext)` runs inside the request — so a non-function `enabled` captures the field's **default** value and never sees the tenant-specific configuration.
 
 | Form | When evaluated | Works with ConfigurationVariables? |
 | --- | --- | --- |
 | `enabled: true` | Module load | N/A — literal value |
-| `enabled: ConfigurationVariables.X` | **Module load** ❌ | No — value is `undefined` at import time |
+| `enabled: ConfigurationVariables.X` | **Module load** ❌ | No — captures the **default**, not the tenant value (read before `initConfigVars()`) |
 | `enabled: () => ConfigurationVariables.X` | **Dispatch time** ✅ | Yes — runs after `initConfigVars()` |
 
 **1. Declare the config var in `sked.proj.json`:**
@@ -742,7 +744,7 @@ export const initConfigVars = (skedContext: SkedContext) =>
 | No predicate boilerplate | Dispatcher filters records; `run()` receives only matched ones |
 | Feature flags | `enabled` field, optionally lazy-evaluated against `ConfigurationVariables` |
 | Declarative overview | Registry array reads like a table of contents |
-| Partial-success signaling | Returns 207 Multi-Status when some handlers failed, with per-handler breakdown |
+| Partial-failure signaling | Returns a non-2xx (500) when any handler failed so the platform retries; 200 only when all succeed, with a per-handler breakdown |
 | Testability | Each handler is a plain object — `shouldRun` and `run` testable independently |
 
 ### Naming convention to avoid "Handler" overload

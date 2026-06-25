@@ -41,7 +41,6 @@ If the ticket does not mention Nunjucks or `content.njk`, default to Page Builde
 
 > `PAGE_LAYOUT` and `PAGE_EXTENDED` with `content.json` both support custom registered components —
 > the difference is the page type, not the component type.
-
 > **Once you've decided on a flow, go to the `page-builder` skill for all implementation.** It has
 > the full `content.json` schema, component library, Nunjucks templating, and deployment patterns.
 > This skill covers only artifact schemas (HorizonPage / HorizonTemplate) and flow/kind selection.
@@ -170,7 +169,6 @@ src/
 > Pick `pageType` to match the page's purpose. A record view uses `VIEW`. `PAGE_BUILDER` is only for
 > declarative Page Builder pages. Use `CUSTOM` only when no standard type fits — it carries no implicit
 > layout or context injection.
-
 > **For list pages, prefer a Page Builder page with a `ListView` component** (`pageType: "PAGE_BUILDER"`,
 > `kind: "PAGE_LAYOUT"`, `content.json`) over `pageType: "LIST"`. The Page Builder + ListView approach
 > lets you add a custom header, extra sections, and per-page column overrides, and you can either
