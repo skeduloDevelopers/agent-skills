@@ -391,8 +391,11 @@ export const createTriggeredActionHandler = <T extends BaseModel>(
       operation === OPERATION_DELETE ? [] : payload.map(item => item.data[objectName])
 
     const mapOldRecord = payload.reduce((acc: Record<string, T>, item) => {
-      const recordId = item.previous?.UID || item.data[objectName].UID
-      acc[recordId] = item.previous
+      // INSERT has no previous record — skip it so values stay non-null and
+      // mapOldRecord is {} for INSERT (matching the availability table above).
+      if (item.previous) {
+        acc[item.previous.UID] = item.previous
+      }
       return acc
     }, {})
 
