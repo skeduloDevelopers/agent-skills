@@ -20,7 +20,7 @@ Custom functions are Skedulo's serverless API platform. They provide stateless, 
 ### Function Structure
 
 Every function has this file structure:
-```
+```text
 my-function/
 ├── sked.proj.json       # Function configuration and settings
 ├── state.json           # Metadata for CLI operations
@@ -61,7 +61,7 @@ This file defines the function configuration:
 - `type`: Always "function"
 - `version`: Always "2"
 - `name`: Lowercase with hyphens, describes purpose
-- `description`: Clear explanation for administrators
+- `description`: Clear explanation for administrators — **must be ≤ 256 characters** (Pulse deployment API enforces this; the package is rejected with a `ValidationException` if exceeded)
 - `runtime`: Use "nodejs18.x"
 - `settings.configVars`: Array of configuration variables
 
@@ -77,16 +77,46 @@ Configuration variables let administrators customize function behavior without c
 - Always provide default values when reasonable
 - Use descriptive names in SCREAMING_SNAKE_CASE
 - Write clear descriptions for administrators
-- Access via: `skedContext?.configVars?.getVariableValue("VAR_NAME")`
+- **Never use `process.env` or `dotenv` to read config vars** — config vars are not OS environment variables on the Pulse platform
+- Access via `context.configVarClient.get(key)` on an `ExecutionContext` (async — `get` returns `{ value: string }` and throws if the var is not found)
 
-**Example:**
+**Helper function pattern** (use this in every handler that reads a config var):
+
 ```typescript
-const apiKey = skedContext?.configVars?.getVariableValue("STRIPE_API_KEY");
-if (!apiKey) {
-  return {
-    status: 400,
-    body: { error: "STRIPE_API_KEY not configured" }
-  };
+import { ExecutionContext } from "@skedulo/pulse-solution-services";
+
+async function getStringConfigVar(
+  context: ExecutionContext,
+  key: string,
+  defaultValue?: string
+): Promise<string | undefined> {
+  try {
+    const configVar = await context.configVarClient.get(key);
+    return configVar?.value || defaultValue;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (!message.toLowerCase().includes("not found")) {
+      console.error(`error reading config var ${key}:`, message);
+    }
+    return defaultValue;
+  }
+}
+```
+
+**Usage in a route handler:**
+
+```typescript
+handler: async (body, headers, method, path, skedContext) => {
+  const context = ExecutionContext.fromContext(skedContext, {
+    requestSource: "custom-function",
+    userAgent: "my-function"
+  });
+
+  const apiKey = await getStringConfigVar(context, "STRIPE_API_KEY");
+  if (!apiKey) {
+    return { status: 400, body: { error: "STRIPE_API_KEY not configured" } };
+  }
+  // ...
 }
 ```
 
@@ -210,6 +240,37 @@ cd my-function
 yarn bootstrap
 ```
 
+#### Required dependency resolution (webpack bundling fix)
+
+Every function that imports `@skedulo/pulse-solution-services` (i.e. anything using the Skedulo API or
+its logger) transitively pulls `winston` → `@dabh/diagnostics`. From `@dabh/diagnostics@2.0.5` the
+package switched its color dependency from the original `colorspace` (which used `color@3`) to the
+`@so-ric/colorspace` fork (which uses `color@5`). Both the fork and `color@5` ship ES2021 numeric
+separators (e.g. `0.003_130_8`) that the scaffold's **webpack 4** bundler cannot parse, because
+node_modules is not transpiled. The build then fails with
+`Module parse failed: Identifier directly after number`.
+
+> Note: a `--mode=production` bundle dead-code-eliminates the diagnostics *development* branch and so
+> dodges this, but the default/`development` bundle that `sked function dev` and deploy dry-runs use
+> hits it. A green `yarn compile` (production) does not mean the function deploys.
+
+Pin `@dabh/diagnostics` back to the last version that uses the original, webpack-4-safe color stack,
+in `package.json` `resolutions`. Use the **exact** version `2.0.3` — `^2.0.3` would re-allow 2.0.8:
+
+```json
+{
+  "resolutions": {
+    "@dabh/diagnostics": "2.0.3"
+  }
+}
+```
+
+This drops `@so-ric/colorspace`/`color@5` from the tree (reverting to `colorspace@1.1.4` + `color@3`)
+and does not change winston's logging behaviour. yarn warns that the resolution is incompatible with
+winston's requested `^2.0.8` range — that warning is expected. Because this changes `package.json`,
+refresh the lockfile with a non-frozen `yarn install` so the resolution is recorded; `yarn bootstrap`'s
+`--frozen-lockfile` fails until the lockfile reflects the pin.
+
 ### 3. Develop Locally
 
 ```bash
@@ -280,8 +341,12 @@ curl --location '<baseUrl>/health' \
   method: "post",
   path: "/webhooks/stripe",
   handler: async (body, headers, method, path, skedContext) => {
+    const context = ExecutionContext.fromContext(skedContext, {
+      requestSource: "custom-function",
+      userAgent: "webhook-receiver"
+    });
     const signature = headers["stripe-signature"];
-    const secret = skedContext?.configVars?.getVariableValue("STRIPE_WEBHOOK_SECRET");
+    const secret = await getStringConfigVar(context, "STRIPE_WEBHOOK_SECRET");
 
     // Verify webhook signature
     if (!verifyStripeSignature(body, signature, secret)) {
@@ -405,7 +470,7 @@ import { ExecutionContext } from "@skedulo/pulse-solution-services";
 ### When Creating New Functions
 
 1. **Use descriptive names:** `customer-validator`, `stripe-integration`, `schedule-optimizer`
-2. **Write clear descriptions:** Help administrators understand the purpose
+2. **Write clear descriptions:** Help administrators understand the purpose — keep the `description` field in `sked.proj.json` to ≤ 256 characters or the Pulse deployment API will reject the package
 3. **Include health check route:** Always add a GET /health endpoint
 4. **Set up config vars early:** Define any API keys or settings upfront
 5. **Add error handling:** Every route should handle errors gracefully
@@ -463,11 +528,13 @@ import { ExecutionContext } from "@skedulo/pulse-solution-services";
 ### Local Testing with .env
 
 Create `.env` file for local config vars:
-```
+```text
 STRIPE_API_KEY=sk_test_xxxxx
 WEBHOOK_SECRET=whsec_xxxxx
 API_ENDPOINT=https://api.example.com
 ```
+
+`sked function dev` reads the `.env` file and injects these values as config vars at runtime — **do NOT read them via `process.env`**. The production code and local dev code are identical: always use `context.configVarClient.get("VAR_NAME")` on an `ExecutionContext`. Never add `dotenv` imports or `process.env` references for config vars.
 
 ### Unit Testing
 - Ensure you have at least 80% unit test coverage on call produced
@@ -533,6 +600,15 @@ Before deploying:
 - [ ] No secrets in code (use config vars)
 
 ## Common Issues
+
+### "Module parse failed: Identifier directly after number" (webpack)
+Cause: `@dabh/diagnostics@2.0.5+` (pulled transitively by `@skedulo/pulse-solution-services` →
+`winston`) switched to the `@so-ric/colorspace` fork + `color@5`, which ship ES2021 numeric separators
+that webpack 4 cannot parse (node_modules is not transpiled). Default/development bundles fail;
+production bundles mask it via dead-code elimination, so don't trust a green `yarn compile`.
+Solution: pin `"@dabh/diagnostics": "2.0.3"` (exact, not `^`) in `package.json` `resolutions`, then run
+`yarn install` (non-frozen) to refresh the lockfile and rebuild. See "Required dependency resolution"
+under Development Workflow.
 
 ### "Cannot find module"
 Solution: Run `yarn bootstrap` to install dependencies
@@ -616,90 +692,13 @@ Custom UI components can call functions via fetch.
 ### Mobile Extensions
 Mobile apps can invoke functions for custom logic.
 
-## Triggered Actions
+## Triggered Actions, Event Queueing, and the @cx Library
 
-Triggered actions fire automatically when Skedulo records are created, updated, or deleted. Two things are required: a **manifest file** that tells Skedulo when and what to send, and a **handler** in your function that processes the payload.
+These topics live in their own focused skills — load the matching one on demand rather than carrying it here:
 
-See the full reference: **[references/triggered-action-handler.md](references/triggered-action-handler.md)**
-
-For handling large record batches without timeouts, see **[references/event-queueing.md](references/event-queueing.md)**.
-
-### Manifest file (`src/triggered-actions/*.triggered-action.json`)
-
-Each triggered action needs a manifest deployed alongside your function:
-
-```json
-{
-  "metadata": { "type": "TriggeredAction" },
-  "name": "job-after-updated",
-  "enabled": true,
-  "trigger": {
-    "type": "object_modified",
-    "schemaName": "Jobs",
-    "filter": "Operation == 'UPDATE' AND (Current.JobStatus != Previous.JobStatus)"
-  },
-  "action": {
-    "type": "call_url",
-    "url": "{{SKEDULO_API_URL}}/function/my-function/my-function/triggered-action/job-after-update",
-    "headers": {
-      "Authorization": "Bearer {{ SKEDULO_USER_TOKEN }}",
-      "sked-function-execution-type": "async"
-    },
-    "query": "{ UID Name JobStatus AccountId }",
-    "previousFields": "{ UID JobStatus }"
-  }
-}
-```
-
-- `trigger.filter` — EQL expression controlling when the action fires. Keep it narrow.
-- `action.query` — fields sent for the **new** record. Your handler only sees what's listed here.
-- `action.previousFields` — fields sent for the **old** record (UPDATE/DELETE only).
-- `sked-function-execution-type: async` — use for operations that may be slow.
-
-### Handler
-
-Use `createTriggeredActionHandler<T>(objectName, handler)` to parse the payload into a typed `TriggerContext`:
-
-```typescript
-export const afterUpdateJobHandler = createTriggeredActionHandler<Jobs>(
-  'Jobs',
-  async ({ data: { newRecords, mapOldRecord } }) => {
-    const statusChanges = newRecords.filter(job => {
-      const old = mapOldRecord[job.UID]
-      return old && old.JobStatus !== job.JobStatus
-    })
-
-    if (!statusChanges.length) {
-      return { status: 200, body: { message: 'No relevant changes, skipping' } }
-    }
-
-    await processStatusChanges(statusChanges)
-    return { status: 200, body: { processed: statusChanges.length } }
-  }
-)
-```
-
-`TriggerContext` provides:
-- `newRecords` — records after the change (empty array for DELETE)
-- `mapOldRecord` — previous state keyed by UID
-- `isInsert / isUpdate / isDelete` — operation flags
-
-Route convention: `POST /triggered-action/{entity-action}` (e.g. `/triggered-action/job-after-update`). The URL in the manifest must match exactly.
-
-### Deploying with the CLI
-
-Always ask for the tenant alias before deploying. Deploy the function first, then the manifest:
-
-```bash
-sked artifacts triggered-action upsert \
-  -f src/triggered-actions/job-after-update.triggered-action.json \
-  -a <alias>
-
-# Verify
-sked artifacts triggered-action list -a <alias> --filter name=job-after-update
-```
-
-See **[references/triggered-action-handler.md](references/triggered-action-handler.md)** for the full CLI reference (upsert, list, get, delete) and the complete deployment workflow.
+- **Triggered actions** (manifests, `createTriggeredActionHandler`, `object_modified` triggers, `POST /triggered-action/*`, deploy CLI) → load the **`connected-function-triggered-actions`** skill.
+- **Event queueing** (large/bursty triggered-action payloads, async queue + worker, bulk enqueue) → load the **`connected-function-event-queue`** skill.
+- **`@cx` shared library** (cx-wellbe-senior — shared models, service factory, object definitions, config across functions) → load the **`connected-function-cx-library`** skill.
 
 ## Resources
 
@@ -707,9 +706,9 @@ See **[references/triggered-action-handler.md](references/triggered-action-handl
 - Function utilities: `@skedulo/function-utilities` npm package
 - GraphQL client: Access via `skedContext.graphQL`
 - Platform docs: Check Skedulo documentation portal
-- Triggered action patterns: [references/triggered-action-handler.md](references/triggered-action-handler.md)
-- Event queueing for large batches: [references/event-queueing.md](references/event-queueing.md)
-- @cx shared library (cx-wellbe-senior): [references/cx-library.md](references/cx-library.md)
+- Triggered actions: load the `connected-function-triggered-actions` skill
+- Event queueing for large batches: load the `connected-function-event-queue` skill
+- `@cx` shared library (cx-wellbe-senior): load the `connected-function-cx-library` skill
 
 ## Working with Skedulo APIs
 
