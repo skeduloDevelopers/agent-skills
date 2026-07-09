@@ -138,6 +138,8 @@ Skedulo for Salesforce tenants need additional Salesforce-side configuration to 
 | `filter`     | ✅ — MANDATORY for Triggered Actions | EQL expression — see Filter EQL below. Unlike webhooks (where filter is optional), Triggered Actions reject a missing or empty filter.                   |
 | `deferred`   | ⚠️ Optional                         | See Deferred Triggers below.                                                                                                                              |
 
+**`trigger` has no other keys.** `query` and `previousFields` are `action`-level payload keys (what data gets sent when the action fires) — they are never valid under `trigger`, which only controls *when* the action fires.
+
 #### Filter EQL (object_modified)
 
 The filter is a special variant of EQL relevant to change events. It MUST reference fields via the `Current.` or `Previous.` parent and MAY reference the operation that caused the change:
@@ -159,6 +161,7 @@ Rules:
 - String literals use single quotes
 - Booleans are `true` / `false`
 - `null` checks: `Current.<Field> != null`
+- Combine conditions with the keywords `AND` / `OR` only — C-style `&&` / `||` are NOT valid EQL and reject at upsert (e.g. `Operation == 'INSERT' && Current.ExternalId != null` fails with `Expected (OR | AND | end-of-input)`)
 
 Best practice: write filters that constrain narrowly. A filter of `Operation == 'UPDATE'` against a high-traffic object (Jobs, JobAllocations) fires thousands of times a day for fields you don't care about — combine with field-equality conditions.
 
@@ -370,7 +373,7 @@ When using the CLI (`upsert`), this isn't a concern — the local state file is 
 
 #### `{{ SKEDULO_USER_TOKEN }}`
 
-A reserved header template token. When the trigger fired due to a user-initiated change, the platform substitutes the initiating user's access token at fire time. Use it only when the `call_url` target is a **trusted first-party Connected Function** that needs to act *as* the initiating user (respecting their permissions and audit identity). Do not forward it to arbitrary external services — it is a live bearer credential, and sending it off-platform is a credential-leak risk.
+A reserved header template token. When the trigger fired due to a user-initiated change, the platform substitutes the initiating user's access token at fire time. Useful when the call_url target is a Connected Function or external service that needs to act *as* the initiating user (respecting their permissions and audit identity).
 
 `SKEDULO_USER_TOKEN` is also a reserved configuration-variable name — you cannot create a config var with this name.
 
@@ -506,7 +509,7 @@ These are the platform-enforced rules that cause `sked artifacts triggered-actio
 1. **`filter` is MANDATORY** for Triggered Actions. (Webhooks are different — they accept missing filter — but they're a different artifact.) Empty filter strings are also rejected. **Deferred Triggered Actions REQUIRE an additionally narrow filter** — every record matching the filter at upsert time schedules a future fire (the platform pre-computes the deferred fire slot), so a broad filter against `Jobs` or `JobAllocations` instantly schedules tens of thousands of future events.
 2. **`object_modified` filter MUST reference fields via `Current.<Field>` or `Previous.<Field>`** — raw `<Field>` without a prefix is rejected. `Operation` is the only valid unprefixed token (matches one of `'INSERT'`, `'UPDATE'`, `'DELETE'`).
 3. **`action.url` must be HTTPS** for `call_url` actions. `http://` is rejected at upsert.
-4. **`previousFields` cannot contain nested objects** — flat field selection only. `{ Duration JobStatus Region { Name } }` is invalid; `Region` must come from the main `query` block, not `previousFields`.
+4. **`previousFields` cannot contain nested objects** — flat field selection only. `{ Duration JobStatus Region { Name } }` is invalid; `Region` must come from the main `query` block, not `previousFields`. **Both `previousFields` and `query` belong under `action` only — never under `trigger`.**
 5. **INSERT has no `previous`, DELETE has no `data`** — call_url targets that assume both will misbehave. The platform auto-injects `previous.UID` on DELETE so the target can identify the deleted record.
 6. **Deferred offset >= 5000ms** when the anchor is `CreatedDate` or `LastModifiedDate`. Smaller offsets race the platform's internal change-processing lag.
 7. **`action.type` is IMMUTABLE on update**. You cannot upsert a `call_url` action over an existing `send_sms` action — the API returns 400 `"Cannot change the type of the action"`. Delete + recreate when you genuinely need to switch.
@@ -515,6 +518,7 @@ These are the platform-enforced rules that cause `sked artifacts triggered-actio
 10. **Field names in `send_sms` templates must resolve on the trigger schema** (or via dotted lookup path). The review-agent verifies this against the GraphQL schema when an `--alias` is available.
 11. **`enabled: false` deploys but doesn't fire** — use deliberately for staging; don't leave production triggers disabled by accident.
 12. **Skedulo for Salesforce — `schemaName` references the registered Pulse type**, not the SF table. If you add a custom object on the SF side and want a Triggered Action to fire on it, register the object in Pulse Web → Settings → Data management → Custom fields per environment first; only then does the Pulse type name exist and become a valid `schemaName`.
+13. **Filter logical operators are the keywords `AND` / `OR` only.** C-style `&&` / `||` are NOT valid EQL and reject at upsert with `Expected (OR | AND | end-of-input)`. This applies to both `object_modified` and `event` filters.
 
 ## Common Patterns (the 5 starter templates)
 
