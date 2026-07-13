@@ -17,6 +17,7 @@ Author, edit, review, and deploy Skedulo Pulse Triggered Actions — event-drive
 - `object_modified` requires change-event tracking enabled on the object
 - For cron schedules or inbound SMS, use `webhooks-developer` instead
 - `SKEDULO_USER_TOKEN` is a live bearer credential — only forward it to trusted first-party functions
+- EQL filters combine conditions with `AND` / `OR` — C-style `&&` / `||` are rejected at upsert
 
 ## Example
 
@@ -25,7 +26,7 @@ Author, edit, review, and deploy Skedulo Pulse Triggered Actions — event-drive
   "trigger": {
     "type": "object_modified",
     "schemaName": "Jobs",
-    "filter": "Current.Status == 'Complete' && Previous.Status != 'Complete'"
+    "filter": "Current.Status == 'Complete' AND Previous.Status != 'Complete'"
   },
   "action": { "type": "call_url", "url": "https://example.com/on-complete" }
 }
