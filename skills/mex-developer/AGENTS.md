@@ -16,7 +16,6 @@ Build, modify, and validate Mobile Extensions (MEX) for the Skedulo Plus app —
 - All user-facing text uses localized keys from `en.json` — pure strings, no `${...}` wrapping
 - `mandatory` is UI-only (asterisk) — pair it with a `validator` to actually enforce
 - Data contexts: `formData` (instanceFetch), `sharedData` (staticFetch), `pageData` (selected list item)
-- For server-side logic, use `mex-custom-function-builder`; for WebView forms, use `mexwex-developer`
 
 ## Example
 

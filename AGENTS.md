@@ -19,8 +19,6 @@ Agent skills for building on the [Skedulo Pulse Platform](https://www.skedulo.co
 | [horizon-list-config-developer](skills/horizon-list-config-developer/) | Author and deploy HorizonListConfig artifacts | Configuring built-in Skedulo object list pages — columns, Nunjucks templates, and list config | `npx skills add skeduloDevelopers/agent-skills@horizon-list-config-developer` |
 | [page-builder-column-templates](skills/page-builder-column-templates/) | Skedulo Page Builder list view column templates | Writing or styling list-view column templates — Nunjucks, lozenges/links, date/number/currency formatting, picklists, conditionals, cross-object fields | `npx skills add skeduloDevelopers/agent-skills@page-builder-column-templates` |
 | [mex-developer](skills/mex-developer/) | Build, modify, and validate Mobile Extensions (MEX) for Skedulo Plus | Building or editing JSON-configured MEX mobile forms with integrated data fetching and logic | `npx skills add skeduloDevelopers/agent-skills@mex-developer` |
-| [mex-custom-function-builder](skills/mex-custom-function-builder/) | Add server-side custom functions to MEX forms | Implementing fetch/save/validate/static handlers, atomic multi-object saves, server-side aggregates, or remote validation in a MEX form | `npx skills add skeduloDevelopers/agent-skills@mex-custom-function-builder` |
-| [mexwex-developer](skills/mexwex-developer/) | Build, modify, and validate MEXWEX (WebView) forms | `ui_def.json` is `{ "type": "mexwex" }`, a `mexwex/` folder exists, or building a WebView form that calls live APIs via `@skedulo/mexwex-bridge` | `npx skills add skeduloDevelopers/agent-skills@mexwex-developer` |
 
 ## Installation
 
