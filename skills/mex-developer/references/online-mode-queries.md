@@ -81,7 +81,7 @@ function fetchSomeData(input, { extHelpers }) {
 }
 ```
 
-Replace `{your_def_id}` with your form's `defId` from `upload_config.json` and `your-path` with whatever your backend handler registered. See **Authoring a custom-function backend** in the `mex-custom-function-builder` skill for the receiving side.
+Replace `{your_def_id}` with your form's `defId` from `upload_config.json` and `your-path` with whatever your backend handler registered.
 
 ## Standard push
 
