@@ -17,7 +17,7 @@ All artifact commands follow: `sked artifacts <type> <operation> [flags] -a <ali
 
 ### Operations by Type
 
-`--help` lists all four operations for every type because commands are generated from descriptors. This table reflects live behaviour on CLI 5.0.9 against a Pulse tenant; availability can also vary by tenant. When in doubt, probe with `list --json` and treat an error as "not available".
+`--help` lists all four operations for every type because commands are generated from descriptors. This table reflects live behaviour on CLI 5.0.9 against a Pulse tenant; availability can also vary by tenant. When in doubt, probe with `list --json` using all required flags, such as `--objectName` for `custom-field`. Treat only explicit documented unsupported or unavailable responses, such as `409 Not implemented`, as evidence that the operation is not available.
 
 | Type | get | list | upsert | delete | Identifier |
 |------|-----|------|--------|--------|------------|

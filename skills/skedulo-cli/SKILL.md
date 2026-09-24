@@ -61,7 +61,7 @@ Query the platform instead of asking the user. Pattern: `sked artifacts <type> l
 
 Never guess field names or fire parallel `get` calls for individual fields. `list` returns everything you need in one request.
 
-Note: `--help` advertises `get`/`list`/`upsert`/`delete` for **every** type because the commands are generated from descriptors, so help output does not tell you what a type supports. `list` returns `[Conflict] Not implemented` for `web-extension` and `mobile-extension`, and some types fail with 401/404/500 when not enabled on the tenant. Treat a `list` failure as "not available here" and fall back to `get -o <tmpdir>` with a known name, or ask the user.
+Note: `--help` advertises `get`/`list`/`upsert`/`delete` for **every** type because the commands are generated from descriptors, so help output does not tell you what a type supports. Include all required flags before concluding `list` is unsupported — e.g. `custom-field list` needs `--objectName`, and a failure without it is a missing-flag error, not unavailability. `list` returns `[Conflict] Not implemented` for `web-extension` and `mobile-extension`; treat only that kind of explicit unsupported/unavailable response as "not available here" (other failures like 401/404/500 usually mean auth or a disabled tenant feature) and fall back to `get -o <tmpdir>` with a known name, or ask the user.
 
 ### Handle errors correctly
 
@@ -118,7 +118,7 @@ Understand what each artifact IS before choosing which to modify. See cli-refere
 | Task | Pattern |
 |------|---------|
 | Upsert artifact | `sked artifacts <type> upsert -f <file> -a <alias>` |
-| Inspect artifact | `sked artifacts <type> get --name <Name> --json -a <alias>` |
+| Inspect artifact | `sked artifacts <type> list --json -a <alias>` or `get -o <tmpdir>` |
 | List artifacts | `sked artifacts <type> list --json -a <alias>` |
 | Deploy package | `sked package deploy local -p <path> -a <alias>` |
 | Dry-run deploy | add `--dryRun` to deploy command |
