@@ -61,7 +61,7 @@ Query the platform instead of asking the user. Pattern: `sked artifacts <type> l
 
 Never guess field names or fire parallel `get` calls for individual fields. `list` returns everything you need in one request.
 
-Note: `--help` advertises `get`/`list`/`upsert`/`delete` for **every** type because the commands are generated from descriptors, so help output does not tell you what a type supports. Include all required flags before concluding `list` is unsupported — e.g. `custom-field list` needs `--objectName`, and a failure without it is a missing-flag error, not unavailability. `list` returns `[Conflict] Not implemented` for `web-extension` and `mobile-extension`; treat only that kind of explicit unsupported/unavailable response as "not available here" (other failures like 401/404/500 usually mean auth or a disabled tenant feature). For types where `get` is also unsupported (currently `web-extension` and `mobile-extension`), there is no fallback — ask the user for the artifact details instead. For other types, fall back to `get -o <tmpdir>` with a known name.
+Note: `--help` advertises `get`/`list`/`upsert`/`delete` for **every** type because the commands are generated from descriptors, so help output does not tell you what a type supports. Include all required flags before concluding `list` is unsupported — e.g. `custom-field list` needs `--objectName`, and a failure without it is a missing-flag error, not unavailability. `list` returns `[Conflict] Not implemented` for `web-extension` and `mobile-extension`; treat only that kind of explicit unsupported/unavailable response as "not available here" (other failures like 401/404/500 usually mean auth or a disabled tenant feature). For types where `get` is also unsupported (currently `web-extension` and `mobile-extension`), there is no fallback — ask the user for the artifact details instead. For other types, fall back to `get -o <tmpdir> -a <alias>` with a known name.
 
 ### Handle errors correctly
 
@@ -118,7 +118,7 @@ Understand what each artifact IS before choosing which to modify. See cli-refere
 | Task | Pattern |
 |------|---------|
 | Upsert artifact | `sked artifacts <type> upsert -f <file> -a <alias>` |
-| Inspect artifact | `sked artifacts <type> list --json -a <alias>` or `get -o <tmpdir>` |
+| Inspect artifact | `sked artifacts <type> list --json -a <alias>` or `get -o <tmpdir> -a <alias>` |
 | List artifacts | `sked artifacts <type> list --json -a <alias>` |
 | Deploy package | `sked package deploy local -p <path> -a <alias>` |
 | Dry-run deploy | add `--dryRun` to deploy command |
@@ -139,5 +139,5 @@ Understand what each artifact IS before choosing which to modify. See cli-refere
 | Guessing artifact JSON schemas | Clone the examples repo. Never construct from memory |
 | Falling back to REST API when CLI fails | Read the error message first — usually wrong name/casing or expired auth |
 | Omitting `-a <alias>` after context compaction | Always include it. Every command. No exceptions |
-| Expecting `get --json` to be read-only | `get` always writes files, to `-o` or to cwd. Inspect with `list --json`, or `get -o <tmpdir>` |
+| Expecting `get --json` to be read-only | `get` always writes files, to `-o` or to cwd. Inspect with `list --json`, or `get -o <tmpdir> -a <alias>` |
 | Using `create` or `update` commands | Deprecated. Always use `upsert` |
