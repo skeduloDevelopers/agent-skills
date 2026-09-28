@@ -47,9 +47,9 @@ Every `sked` command that supports `-a` MUST include it.
 
 Run `<command> --help` before guessing at flags. Works at every level: `sked --help`, `sked artifacts --help`, `sked artifacts function list --help`. Use it to confirm `-a` support (see "Always use `-a`" rule) and discover flags like `--dryRun`, `--json`, `--verbose`.
 
-### Use `--json` for read-only inspection
+### `get` always writes files
 
-Use `get --json` to inspect artifacts — NOT `get -o` which downloads files into the repo. Only use `-o` when you intend to modify the artifact.
+`get` writes the artifact JSON (and the source directory for bundled types) to `-o <dir>`, or to the **current directory** when `-o` is omitted. `--json` only changes what goes to stdout; it does not make `get` read-only. To inspect without touching the repo, prefer `list --json`, or run `get -o <tmpdir>` and delete the directory afterwards.
 
 ### Use `list` + `--json` for discovery
 
@@ -61,15 +61,15 @@ Query the platform instead of asking the user. Pattern: `sked artifacts <type> l
 
 Never guess field names or fire parallel `get` calls for individual fields. `list` returns everything you need in one request.
 
-Note: some artifact types return "not implemented" for `list` — fall back to `get --json` with a known name, or ask the user.
+Note: `--help` advertises `get`/`list`/`upsert`/`delete` for **every** type because the commands are generated from descriptors, so help output does not tell you what a type supports. Include all required flags before concluding `list` is unsupported — e.g. `custom-field list` needs `--objectName`, and a failure without it is a missing-flag error, not unavailability. `list` returns `[Conflict] Not implemented` for `web-extension` and `mobile-extension`; treat only that kind of explicit unsupported/unavailable response as "not available here" (other failures like 401/404/500 usually mean auth or a disabled tenant feature). For types where `get` is also unsupported (currently `web-extension` and `mobile-extension`), there is no fallback — ask the user for the artifact details instead. For other types, fall back to `get -o <tmpdir> -a <alias>` with a known name.
 
 ### Handle errors correctly
 
 **Auth errors:** Run `sked tenant list` to check token expiry. If expired: `sked tenant login web -a <alias>` (`-a` is optional but recommended to associate the login with an alias). Don't debug command syntax when it's an auth issue.
 
-**"Not Found" errors:** Usually means wrong name/casing (e.g., `Projects` vs `Project`). List first to discover exact names: `sked artifacts custom-object list --json -a <alias>` before querying fields.
+**"Not Found" errors:** Usually means wrong name/casing (e.g., `Projects` vs `Project`). List first to discover exact names: `sked artifacts custom-object list --json -a <alias>` before querying fields. For `horizon-page`, `horizon-template`, `horizon-view-type` and `horizon-list-config`, `list` also returns platform-owned defaults that `get` cannot retrieve; a `Not Found` on one of those usually means the item is platform-owned, not misspelled. Nothing in the list output marks ownership.
 
-**CLI errors include stack traces** — ignore the stack, read the `message` field for the actual error. For deeper debugging: `DEBUG=*skedulo* sked <command>`.
+**CLI errors include stack traces** — ignore the stack, read the `message` field for the actual error. With `--json` the error is a JSON object on stdout (`{ "message", "stack", "exitCode", ... }`) and the progress spinner is suppressed, which makes it the easiest form to parse. For deeper debugging: `DEBUG=*skedulo* sked <command>`.
 
 ### Confirm before destructive operations
 
@@ -118,7 +118,7 @@ Understand what each artifact IS before choosing which to modify. See cli-refere
 | Task | Pattern |
 |------|---------|
 | Upsert artifact | `sked artifacts <type> upsert -f <file> -a <alias>` |
-| Inspect artifact | `sked artifacts <type> get --name <Name> --json -a <alias>` |
+| Inspect artifact | `sked artifacts <type> list --json -a <alias>` or `get -o <tmpdir> -a <alias>` |
 | List artifacts | `sked artifacts <type> list --json -a <alias>` |
 | Deploy package | `sked package deploy local -p <path> -a <alias>` |
 | Dry-run deploy | add `--dryRun` to deploy command |
@@ -139,5 +139,5 @@ Understand what each artifact IS before choosing which to modify. See cli-refere
 | Guessing artifact JSON schemas | Clone the examples repo. Never construct from memory |
 | Falling back to REST API when CLI fails | Read the error message first — usually wrong name/casing or expired auth |
 | Omitting `-a <alias>` after context compaction | Always include it. Every command. No exceptions |
-| Using `get -o` to inspect an artifact | Use `get --json`. `-o` downloads files into your repo |
+| Expecting `get --json` to be read-only | `get` always writes files, to `-o` or to cwd. Inspect with `list --json`, or `get -o <tmpdir> -a <alias>` |
 | Using `create` or `update` commands | Deprecated. Always use `upsert` |

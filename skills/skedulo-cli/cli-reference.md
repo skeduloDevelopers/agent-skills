@@ -17,18 +17,20 @@ All artifact commands follow: `sked artifacts <type> <operation> [flags] -a <ali
 
 ### Operations by Type
 
+`--help` lists all four operations for every type because commands are generated from descriptors. This table reflects live behaviour on CLI 5.0.9 against a Pulse tenant; availability can also vary by tenant. When in doubt, probe with `list --json` using all required flags, such as `--objectName` for `custom-field`. Treat only explicit documented unsupported or unavailable responses, such as `409 Not implemented`, as evidence that the operation is not available.
+
 | Type | get | list | upsert | delete | Identifier |
 |------|-----|------|--------|--------|------------|
 | custom-field | Yes | Yes (`--objectName` required) | Yes | Yes | `--name` + `--objectName` |
 | custom-object | Yes | Yes | Yes | Yes | `--name` |
-| function | No | Yes | Yes | Yes | `--name` |
+| function | Yes | Yes | Yes | Yes | `--name` |
 | webhook | Yes | Yes | Yes | Yes | `--name` |
-| web-extension | No | No | Yes | Yes | `--name` |
+| web-extension | No | No (409 Not implemented) | Yes | Yes | `--name` |
 | horizon-page | Yes | Yes | Yes | Yes | `--slug` |
 | horizon-template | Yes | Yes | Yes | Yes | `--name` |
 | triggered-action | Yes | Yes | Yes | Yes | `--name` |
-| mobile-extension | No | No | Yes | Yes | `--name` |
-| public-page | No | No | Yes | Yes | `--name` |
+| mobile-extension | No | No (409 Not implemented) | Yes | Yes | `--name` |
+| public-page | Yes | Yes | Yes | Yes | `--name` |
 | user-role | Yes | Yes | Yes | Yes | `--name` |
 
 ### Common Artifact Flags
@@ -37,7 +39,7 @@ All artifact commands follow: `sked artifacts <type> <operation> [flags] -a <ali
 |------|---------|---------|
 | `-a <alias>` | All artifact commands | Target tenant (REQUIRED) |
 | `-f <file>` | upsert, create, update | Path to artifact JSON file |
-| `-o <dir>` | get | Output directory |
+| `-o <dir>` | get | Output directory. Files are written to cwd when omitted, even with `--json` |
 | `-w <seconds>` | upsert, delete | Wait timeout (default: 900s) |
 | `--json` | All commands | JSON output to stdout |
 | `--name <value>` | get, delete, upsert | Artifact identifier |
