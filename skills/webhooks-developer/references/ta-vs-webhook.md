@@ -1,9 +1,8 @@
 # Triggered Action vs Webhook — decision matrix
 
 The canonical decision matrix for choosing between the two Pulse event-automation artifacts.
-(The webhooks plugin vendors this file — edit it here, not there.)
 
-Both are implemented on the same platform machinery — a Webhook is internally a specialised
+Both are implemented on the same platform machinery — a Webhook is a specialised
 flavour of Triggered Action and shares the `/triggered_actions/logs` surface — but they are
 configured against different APIs (`/triggered_actions` vs `/webhooks`), different `sked` CLI
 artifacts, and different state-file shapes.

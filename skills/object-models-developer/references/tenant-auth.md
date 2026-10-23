@@ -2,12 +2,12 @@
 
 Convention for any command or agent that runs a `sked` CLI call against a tenant. It works in two
 environments with one resolution order, so the same flow behaves identically on a developer's
-machine (interactive login) and inside the headless Skedulo Dev Agent sandbox (per-repo API token).
+machine (interactive login) and inside a headless agent sandbox (per-repo API token).
 
 ## Resolution order (highest priority first)
 
 1. Explicit **`--alias <name>`** on the command → **interactive/local path**. Always wins over an ambient token.
-2. **`SKED_CLI_API_TOKEN`** env var → **headless path** (a per-repo API token provided to the automated Dev Agent sandbox). This is the *selection/priority* signal; the sandbox re-exports its value to `SKEDULO_API_TOKEN`, which is what the CLI actually consumes.
+2. **`SKED_CLI_API_TOKEN`** env var → **headless path** (a per-repo API token provided to the automated agent sandbox). This is the *selection/priority* signal; the sandbox re-exports its value to `SKEDULO_API_TOKEN`, which is what the CLI actually consumes.
 3. **`SKEDULO_API_TOKEN`** env var → legacy headless fallback.
 
 ## Interactive path (alias present)
@@ -32,7 +32,7 @@ sked tenant display --json   # must exit 0; proves the CLI is authenticated agai
 ```
 
 - **Fail-fast:** if `sked tenant display` fails (non-zero exit), STOP with a clear error. Never continue in an unauthenticated state.
-- The token is consumed by the CLI via the `SKEDULO_API_TOKEN` env var (the Dev Agent already exports it from the resolved source).
+- The token is consumed by the CLI via the `SKEDULO_API_TOKEN` env var (the sandbox already exports it from the resolved source).
 
 ## No auth (neither alias nor token)
 

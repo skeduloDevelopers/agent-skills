@@ -71,7 +71,7 @@ auth per `references/tenant-auth.md`.
 ## Workspace Layout (in the consuming project)
 
 ```text
-<project>/                                    # CX project root = sked package root (holds skeduloPackage.json)
+<project>/                                    # project root = sked package root (holds skeduloPackage.json)
 ├── skeduloPackage.json
 ├── SPEC.md                                   # data-model spec, feature checklist
 └── src/object-model/
@@ -82,8 +82,7 @@ auth per `references/tenant-auth.md`.
             └── <ObjectName>-<FieldName>.custom-field.json
 ```
 
-This matches the canonical CX project templates (`CXPulseProjectTemplate` /
-`CXProjectTemplateExample`), so the whole project deploys via `sked package deploy local -p .`
+This is a standard package layout, so the whole project deploys via `sked package deploy local -p .`
 from the root as well as per-artifact upserts. The `<ObjectName>-<FieldName>.custom-field.json`
 naming mirrors what `sked artifacts ... get` emits, so files round-trip cleanly.
 
@@ -211,9 +210,7 @@ authoring a field type for the first time in a session.
 ### Custom field on a standard object ("overlay")
 
 You only write the custom-field state file — the parent (`Jobs`, `Resources`, …) is
-platform-managed. Internally the platform calls this a `DataSchemaFieldOverlay` (HasMany:
-`DataSchemaRelationshipOverlay`) — those names surface in deploy error codes (see
-`commands/deploy.md` Step 6b for the fix crib). Overlays are tenant-wide: test in a non-prod
+platform-managed. Deploy error codes may refer to it as a field overlay. Overlays are tenant-wide: test in a non-prod
 tenant first.
 
 ### Audit timestamps

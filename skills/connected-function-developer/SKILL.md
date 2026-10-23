@@ -685,6 +685,5 @@ Specialized topics live in their own focused skills — load the matching one on
 - **Skedulo API access** (`ExecutionContext`, QueryBuilder, GraphQL/EQL, batch operations, execution limits) → load the **`connected-function:skedulo-api-developer`** skill for all Skedulo data work via `@skedulo/pulse-solution-services`.
 - **Triggered actions** (manifests, `createTriggeredActionHandler`, `object_modified` triggers, `POST /triggered-action/*`, deploy CLI) → load the **`connected-function-triggered-actions`** skill.
 - **Event queueing** (large/bursty triggered-action payloads, async queue + worker, bulk enqueue) → load the **`connected-function-event-queue`** skill.
-- **`@cx` shared library** (cx-wellbe-senior — shared models, service factory, object definitions, config across functions) → load the **`connected-function-cx-library`** skill.
 
 Other resources: `sked function generate --help` for CLI options; `@skedulo/function-utilities` npm package for `createSkedContext`.

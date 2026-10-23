@@ -7,7 +7,7 @@ A lower-level TypeScript framework for building a typed, reusable data service l
 | Situation | Use |
 | --------- | --- |
 | Writing a function that queries/mutates Skedulo data directly | `@skedulo/pulse-solution-services` (`ExecutionContext`, `QueryBuilder`) |
-| Building a shared service layer used across many functions (the `@cx` pattern) | `@skedulo/pulse-solutions-framework` (`createBaseService`, `DataService`) |
+| Building a shared service layer used across many functions (shared service pattern) | `@skedulo/pulse-solutions-framework` (`createBaseService`, `DataService`) |
 | Generating recurring dates (daily/weekly/monthly/yearly patterns) | `@skedulo/pulse-solutions-framework` (`createRecurringService`) |
 | Applying configuration templates to Skedulo objects | `@skedulo/pulse-solutions-framework` (`createTemplateService`, `createJobTemplateService`) |
 
@@ -379,5 +379,4 @@ const result = await jobTemplateService.generateJobByTemplate(
 
 ## See Also
 
-- `@cx` shared library pattern: load the `connected-function:connected-function-cx-library` skill (reference at [../../connected-function-cx-library/references/cx-library.md](../../connected-function-cx-library/references/cx-library.md))
 - `@skedulo/pulse-solution-services` (higher-level `ExecutionContext`, `QueryBuilder`, batch processing): the main `skedulo-api-developer` SKILL.md

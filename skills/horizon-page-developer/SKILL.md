@@ -146,7 +146,7 @@ horizon-template/
 ```
 
 **Pattern B — content in a named subdirectory (`source: "./<template-name>"`) — the alternative.**
-Use only when a single feature directory groups multiple templates (seen in some CX project
+Use only when a single feature directory groups multiple templates (seen in some existing project
 repositories). The subdirectory name must match the template `name` field exactly:
 
 ```text
@@ -249,7 +249,7 @@ under `horizon-template/<template-name>/`:
         └── content.json   (or content.njk)
 ```
 
-> The deploy command expects `horizon-page/*.horizon-page.json` — the flat layout above. CX project
+> The deploy command expects `horizon-page/*.horizon-page.json` — the flat layout above. existing project
 > repositories sometimes use feature subdirectories; that is a project-level convention, not the
 > plugin scaffold.
 
