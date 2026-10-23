@@ -176,7 +176,7 @@ await batch.run();
 ### Date Range
 
 ```javascript
-.withFilter(`Start >= '${startDate}' AND Start <= '${endDate}'`)
+.withFilter(`Start >= ${startDate} AND Start <= ${endDate}`)
 ```
 
 ### Status Filter
@@ -194,7 +194,7 @@ await batch.run();
 ### IN Clause
 
 ```javascript
-.withFilter(`UID IN ('${id1}', '${id2}', '${id3}')`)
+.withFilter(`UID IN ['${id1}', '${id2}', '${id3}']`)
 ```
 
 ### NOT NULL
@@ -279,7 +279,7 @@ const context = ExecutionContext.fromContext(skedContext, {
 
 ```javascript
 // Add specific filter
-.withFilter("CreatedDate > '2025-01-01'")
+.withFilter("CreatedDate > 2025-01-01T00:00:00.000Z")
 
 // Reduce page size
 const pages = await context.graphqlService.queryByPages(queryBuilder, {

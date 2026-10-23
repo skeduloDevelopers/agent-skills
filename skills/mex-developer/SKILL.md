@@ -16,7 +16,7 @@ MEX is a framework for building native-like mobile forms for the Skedulo Plus ap
 A MEX form project MUST follow this specific directory structure:
 
 - `upload_config.json`: Basic deployment configuration (located at project root).
-- `functions/`: Folder containing custom function handlers (use only if the form requires custom functions)
+- `custom_functions/`: Folder containing custom function handlers (use only if the form requires custom functions)
 - `mex_definition/`: Folder containing the core form definition.
     - `ui_def.json`: UI layout and component definitions.
     - `instanceFetch.json`: Data fetching logic for form-specific data (`formData`).
@@ -87,3 +87,4 @@ Read these files on-demand based on what you need. Do NOT read all files upfront
 | Configure metadata.json or upload_config.json | [Metadata & Upload](./references/metadata-upload.md) |
 | Build multi-step wizard forms | [Steps Mode Examples](./references/ui/step-mode-examples.md) |
 | Validate/review a completed form | [Review Checklist](./references/review-checklist.md) |
+| Run & verify a finished form at runtime in a browser (against a real tenant) | [Verify with LDM](./references/verify-with-ldm.md) |
