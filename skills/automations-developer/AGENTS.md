@@ -1,6 +1,6 @@
 # Skedulo Automations Developer
 
-Create, edit, and deploy Skedulo Pulse automations — AWS Step Functions state machines authored as JSON and saved through the Automations REST API.
+Create, edit, and deploy Skedulo Pulse automations — state-machine workflows authored as JSON and saved through the Automations REST API.
 
 ## Use this skill when
 
@@ -13,9 +13,9 @@ Create, edit, and deploy Skedulo Pulse automations — AWS Step Functions state 
 ## Key rules
 
 - Each automation persists as `{ name, description, trigger, workflow, status }`
-- Triggers fire on platform change events (`objectModified`)
+- Triggers fire on platform change events (`recordModified`)
 - Wrap JSONata expressions in `{% ... %}`; the platform auto-injects `QueryLanguage: "JSONata"` and a per-Task `Assign` block — do not set them yourself
-- Apply the documented schema corrections — the raw Step Functions schema will not load as-is
+- Apply the documented schema corrections — the raw ASL schema will not load as-is
 - Authenticate every request with `Authorization: Bearer <jwt>` (`sked auth print-token`)
 - For server-side code, use `connected-function-developer` instead
 
