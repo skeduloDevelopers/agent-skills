@@ -4,7 +4,7 @@
 
 ## 1. Setup
 
-**Scaffold:** `bash scripts/gen-custom-function-boilerplate.sh` — creates all stub files. Fill them in; never create from scratch.
+**Scaffold:** run `bash "${CLAUDE_PLUGIN_ROOT}/skills/mex-custom-function-builder/scripts/gen-custom-function-boilerplate.sh"` from inside the form directory — creates all stub files under `custom_functions/`. Fill them in; never create from scratch.
 
 **Enable flags** in `upload_config.json`:
 

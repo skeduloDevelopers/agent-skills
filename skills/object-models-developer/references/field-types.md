@@ -46,7 +46,7 @@
 | String / TextArea / URL | `String` | yes |
 | Int | `Int` | yes |
 | Decimal | `BigDecimal` | yes |
-| Boolean | `Boolean!` (always present) | no — defaults to `false` or `defaults.defaultValue` |
+| Boolean | `Boolean!` (always present) | no — `defaults.defaultValue` must be set explicitly (required by sked CLI) |
 | Date | `LocalDate` | yes |
 | Datetime | `Instant` | yes |
 | Time | `LocalTime` | yes |
@@ -191,12 +191,13 @@
 
 **Key constraints.**
 
-- `required` is moot — Boolean is always present.
-- `defaults.defaultValue` — must be `true` or `false`. Defaults to `false` if omitted.
+- `required` — conventionally `true` (the field is always present on the wire anyway). Set `false` only when you have a specific reason.
+- `defaults.defaultValue` **must be explicitly set** to `true` or `false` — the sked CLI rejects Boolean fields without a `defaultValue` (`"Boolean field must have a default value"`). Do not rely on any implicit default.
 
 **Gotchas.**
 
 - `null` Boolean is not a thing on Pulse. If you need to model "not yet decided," use a Picklist with an explicit `Pending` value.
+- Omitting `defaultValue` will cause a sked CLI deploy error even though the platform schema treats Boolean as always-present.
 
 ---
 
