@@ -97,7 +97,7 @@ Platform rules you can't discover by reading the workspace — violations fail s
 ## File Structure
 
 ```text
-<your-project>/                # CX project root = sked package root (`sked package deploy local -p .` target)
+<your-project>/                # project root = sked package root (`sked package deploy local -p .` target)
 ├── skeduloPackage.json
 └── src/horizon-list-configs/
     └── <feature-dir>/
@@ -215,13 +215,13 @@ template variables.
 
 ## Deploy
 
-Run package commands from the CX project root — the directory holding `skeduloPackage.json`.
+Run package commands from the project root — the directory holding `skeduloPackage.json`.
 
 ```bash
 # Upsert a single list config artifact
 sked artifacts horizon-list-config upsert -a <alias> -f "src/horizon-list-configs/<feature-dir>/<ObjectName>-DEFAULT_LIST.horizon-list-config.json"
 
-# Deploy the whole package (all configs together, from the CX project root)
+# Deploy the whole package (all configs together, from the project root)
 sked package deploy local -a <alias> -p .
 
 # Production: register first, then deploy

@@ -71,7 +71,7 @@ auth per `references/tenant-auth.md`.
 ## Workspace Layout (in the consuming project)
 
 ```text
-<project>/                                    # CX project root = sked package root (holds skeduloPackage.json)
+<project>/                                    # project root = sked package root (holds skeduloPackage.json)
 ├── skeduloPackage.json
 ├── SPEC.md                                   # data-model spec, feature checklist
 └── src/object-model/
@@ -82,8 +82,7 @@ auth per `references/tenant-auth.md`.
             └── <ObjectName>-<FieldName>.custom-field.json
 ```
 
-This matches the canonical CX project templates (`CXPulseProjectTemplate` /
-`CXProjectTemplateExample`), so the whole project deploys via `sked package deploy local -p .`
+This layout lets the whole project deploy via `sked package deploy local -p .`
 from the root as well as per-artifact upserts. The `<ObjectName>-<FieldName>.custom-field.json`
 naming mirrors what `sked artifacts ... get` emits, so files round-trip cleanly.
 

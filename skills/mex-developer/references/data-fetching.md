@@ -125,7 +125,7 @@ The results are available in the **`sharedData.__vocabulary`** context and are t
 
 ## Fetch Type: CUSTOM
 
-When a form uses a custom function for fetching, set `"type": "CUSTOM"` in `instanceFetch.json` (for `fetchMexData`) or `staticFetch.json` (for `fetchMexStaticData`). No other keys are needed — the engine delegates all data fetching to the Lambda handler.
+When a form uses a custom function for fetching, set `"type": "CUSTOM"` in `instanceFetch.json` (for `fetchMexData`) or `staticFetch.json` (for `fetchMexStaticData`). No other keys are needed — the engine delegates all data fetching to the custom function handler.
 
 ```json
 {

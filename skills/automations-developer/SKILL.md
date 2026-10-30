@@ -1,13 +1,13 @@
 ---
 name: automations-developer
-description: This skill enables Claude to create, edit, and deploy Skedulo Pulse automations via the automation-service REST API. Captures the full action/trigger vocabulary, the 9 undocumented schema corrections required to actually get automations to load, JSONata-in-Step-Functions gotchas, and proven workflow patterns. Use any time the user wants to author or edit an automation, debug a 400/500 from the automation-service, or translate a customer webhook/triggered-action into the automation platform.
+description: This skill enables Claude to create, edit, and deploy Skedulo Pulse automations via the Automations REST API. Captures the full action/trigger vocabulary, the 9 undocumented schema corrections required to actually get automations to load, JSONata gotchas, and proven workflow patterns. Use any time the user wants to author or edit an automation, debug a 400/500 from the Automations API, or translate a customer webhook/triggered-action into the automation platform.
 ---
 
 # Skedulo Automations Developer Skill
 
 ## What this skill covers
 
-Skedulo Automations are AWS Step Functions state machines authored as JSON, triggered by tenant data events, and saved through a REST API. This skill is the working reference for building them — schema, trigger types, action vocabulary, JSONata gotchas, and end-to-end workflow.
+Skedulo Automations are workflows authored as JSON state machines, triggered by tenant data events, and saved through a REST API. This skill is the working reference for building them — schema, trigger types, action vocabulary, JSONata gotchas, and end-to-end workflow.
 
 **Use this skill when:**
 - Writing a new automation JSON
@@ -19,13 +19,12 @@ Skedulo Automations are AWS Step Functions state machines authored as JSON, trig
 **Do NOT use this skill for:**
 - Writing connected functions (use `connected-function-developer` instead)
 - Building horizon-component UIs that consume automations (use `horizon-component-developer`)
-- Direct AWS Step Functions work outside Skedulo's wrapper (most of what's here is Skedulo-specific)
 
 ---
 
 ## 1. Architecture in one paragraph
 
-The automation-service exposes a NestJS REST API on every tenant's `<base_url.api>` host. Each automation is persisted as `{name, description, trigger, workflow, status}`. Triggers fire on Kafka change events (recordModified) — the runtime resolves `shouldTrigger`, then dispatches the workflow as a Step Functions state machine. Tasks invoke a per-action Lambda via the `automation-engine-invoker`. JSONata expressions wrapped in `{% ... %}` are evaluated by Step Functions' built-in JSONata engine. The platform auto-injects `QueryLanguage: "JSONata"` and an `Assign` block per Task; you don't set those.
+The Automations API is exposed on every tenant's `<base_url.api>` host. Each automation is persisted as `{name, description, trigger, workflow, status}`. `recordModified` triggers fire on platform change events — the runtime resolves `shouldTrigger`, then runs the workflow. Each Task invokes the named action. JSONata expressions wrapped in `{% ... %}` are evaluated by the workflow runtime. The platform auto-injects `QueryLanguage: "JSONata"` and an `Assign` block per Task; you don't set those.
 
 ---
 
@@ -33,21 +32,15 @@ The automation-service exposes a NestJS REST API on every tenant's `<base_url.ap
 
 ### Base URL
 
-Per-tenant. Read from the tenant's Insomnia environment, the platform UI URL bar, or your CLI config. Format: `https://<tenant-host>` — automations live under `/automations/`.
-
-```text
-https://dev-api.test.skl.io        # dev-standalone
-https://api.skedulo.com            # production tenants
-```
+Use the API host for your tenant: `https://api.skedulo.com` for most production tenants, or the regional API host shown in your tenant's `sked` CLI configuration. Automations live under `/automations/`.
 
 ### Auth
 
 All requests use `Authorization: Bearer <jwt>`. Get the token from:
-- Your Insomnia `Environment.db` under `~/Library/Application Support/Insomnia/` — look for an env named `dev-standalone`, `prod-*`, or whatever tenant you're targeting; field is `token.access`
-- The `sked` CLI (`sked auth print-token` or similar)
+- The `sked` CLI (`sked auth print-token`)
 - An OAuth2 flow against the tenant's auth service
 
-A reusable shim that reads from Insomnia at runtime is helpful — see the "Sourceable env shim" pattern in §15.
+Export the token and base URL as environment variables (`AUTOMATION_SERVICE_URL`, `AUTOMATION_SERVICE_TOKEN`) for the examples below.
 
 ### Endpoints
 
@@ -62,7 +55,6 @@ A reusable shim that reads from Insomnia at runtime is helpful — see the "Sour
 | `POST` | `/automations/<name>/deactivate` | Deactivate (status → inactive) |
 | `POST` | `/automations/time-offset/preview` | Count records a `recordTimeOffset` config would schedule — body is the trigger `config`; returns `{ matchingRecordCount }` |
 | `GET` | `/automations/logs` | Tail recent execution logs |
-| `GET` | `/automations/internal/logs/<tenantId>` | Tenant-scoped logs (admin) |
 | `GET` | `/automations/actions` | Live list of available actions on this tenant |
 | `GET` | `/automations/triggers` | Live trigger registry — config schema for each trigger type |
 | `GET` | `/automations/swagger/v3-json` | OpenAPI JSON for the full surface |
@@ -110,17 +102,17 @@ Required top-level shape for `POST /automations/`:
 ### Status model and the active cap
 
 - Lifecycle: author as `draft` (or omit `status`) → `activate` to make it `active` → `deactivate` to `inactive`. Activation validates the trigger and workflow.
-- **Active-automations cap:** a tenant may have at most `MAX_ACTIVE_AUTOMATIONS_PER_TENANT` automations `active` (default **25**). Creating-as-active, or `POST /<name>/activate`, returns **`409 Conflict`** ("You have reached the maximum of N active automations") when the tenant is already at the cap. Drafts and inactive automations don't count.
+- **Active-automations cap:** a tenant may have at most **25** automations `active` by default. Creating-as-active, or `POST /<name>/activate`, returns **`409 Conflict`** ("You have reached the maximum of N active automations") when the tenant is already at the cap. Drafts and inactive automations don't count.
 
 ---
 
 ## 4. Trigger types
 
-The `TriggerType` enum at `automation-service/apps/automation-service/src/shared/enums/trigger-type.ts` has four values, all wired end-to-end: `recordModified`, `event`, `recordTimeOffset`, `scheduled`. `config` is validated per-type in `AutomationsService.validateTrigger` (the DTO keeps it permissive because a union can't be discriminated by `type` at the pipe). Fetch `GET /automations/triggers` for the live config schema of each.
+There are four trigger types: `recordModified`, `event`, `recordTimeOffset`, `scheduled`. `config` is validated per trigger type. Fetch `GET /automations/triggers` for the live config schema of each.
 
 ### `recordModified`
 
-Fires on Kafka CDC events from any data-model record write. (This was previously named `objectModified`; the rename migration means the old value is now rejected.)
+Fires on change events from any data-model record write. (This was previously named `objectModified`; the rename migration means the old value is now rejected.)
 
 ```json
 {
@@ -198,7 +190,7 @@ Cron-style trigger, evaluated in a required IANA timezone.
 
 ## 5. Action vocabulary
 
-The platform ships ~38 actions across 10 categories. The canonical list is at `automation-service/packages/actions/src/all-definitions.ts` in the platform repo, or live at `GET /automations/actions`.
+The platform ships ~38 actions across 10 categories. The canonical list is live at `GET /automations/actions`.
 
 ### Quick reference (as of 2026-07)
 
@@ -247,13 +239,13 @@ $<assignedVar>.result.data.<actual-data-shape>
 
 `http` is the documented exception — its response is `{statusCode, headers, body}` directly without a `result` envelope. Reach for `body` directly: `$<assignedVar>.body`.
 
-When you read an action's source file in `automation-service/packages/actions/src/`, look for `response: actionResponseSchema(...)` — that means wrapped. `http/definition.ts` defines `response` inline without that helper — that means unwrapped.
+To check whether an action's response is wrapped, inspect its response schema in `GET /automations/actions`: a `result` envelope means wrapped; `http` returns its fields directly.
 
 ---
 
 ## 6. Workflow document shape (Amazon States Language)
 
-The `workflow.definition` is a Step Functions state machine. The platform supports the standard ASL state types: `Task`, `Choice`, `Pass`, `Wait`, `Parallel`, `Map`, `Succeed`, `Fail`.
+The `workflow.definition` is a JSON state machine in Amazon States Language (ASL) style. The platform supports the standard ASL state types: `Task`, `Choice`, `Pass`, `Wait`, `Parallel`, `Map`, `Succeed`, `Fail`.
 
 ```json
 {
@@ -306,7 +298,7 @@ The `workflow.definition` is a Step Functions state machine. The platform suppor
 
 ### Resource ARN format — `action:<name>` prefix is REQUIRED
 
-ASL spec wants a Lambda ARN. The platform short-circuits this with a custom prefix:
+ASL expects a resource ARN. The platform uses a custom prefix instead:
 
 | Wrong | Right |
 |-------|-------|
@@ -337,7 +329,6 @@ The runtime exposes the trigger event as a top-level `$trigger`. Don't use `$sta
 The platform auto-generates an `Assign` block for each Task on save, binding the state's result to a variable named `toCamelCase(stateName)`:
 
 ```typescript
-// Same toCamelCase used by automation-service/apps/automation-service/src/step-function/step-function-adapter/to-camel-case.ts
 function toCamelCase(input: string): string {
   const tokens = input.split(/[^a-zA-Z0-9]+/).filter(Boolean)
   const words = tokens.flatMap(token =>
@@ -367,7 +358,7 @@ For `http`, drop the `.result.data` envelope: `{% $postToClearesult.body %}`, `{
 
 ### Block expressions need parentheses
 
-JSONata `;`-separated block expressions must be wrapped in parens — Step Functions' JSONata implementation rejects bare `expr1; expr2`:
+JSONata `;`-separated block expressions must be wrapped in parens — the workflow runtime's JSONata implementation rejects bare `expr1; expr2`:
 
 ```jsonata
 {% ($accountId := $trigger.current.UID; $now := $now(); 'query { ... ' & $accountId & ' ...') %}
@@ -375,7 +366,7 @@ JSONata `;`-separated block expressions must be wrapped in parens — Step Funct
 
 ### `\'` escape is rejected — use double-quoted JSONata strings
 
-Step Functions' JSONata rejects `\'` even though the public spec recognises it. Workaround: switch any string that contains a literal `'` to a double-quoted JSONata string. Inside `"..."` JSONata strings, `'` is literal (no escape needed).
+The workflow runtime's JSONata rejects `\'` even though the public spec recognises it. Workaround: switch any string that contains a literal `'` to a double-quoted JSONata string. Inside `"..."` JSONata strings, `'` is literal (no escape needed).
 
 **Wrong** (single-quoted JSONata, with backslash-escaped single quotes — fails):
 
@@ -485,7 +476,7 @@ curl -s -H "Authorization: Bearer $AUTOMATION_SERVICE_TOKEN" \
 
 ### Step 6: Inspect in the Phoenix UI
 
-Open `<base_url.ui>` (e.g. `https://platform.test.skl.io`), navigate to the Automations app, search for your name. Confirm:
+Open `<base_url.ui>`, navigate to the Automations app, search for your name. Confirm:
 
 - Visual graph renders correctly
 - Property panels show the `Arguments`/`Condition` JSONata cleanly
@@ -789,7 +780,7 @@ Self-explanatory. Strip any other characters (especially `/`, `:`, `@`).
 Each name is unique within tenant. Append a timestamp or sequence number, or DELETE the existing one first.
 
 ### `409 Conflict: You have reached the maximum of N active automations`
-The tenant is at its active-automations cap (`MAX_ACTIVE_AUTOMATIONS_PER_TENANT`, default 25). Deactivate an existing automation first, or leave this one as a `draft`/`inactive`. Only `active` automations count toward the cap.
+The tenant is at its active-automations cap (default 25). Deactivate an existing automation first, or leave this one as a `draft`/`inactive`. Only `active` automations count toward the cap.
 
 ### `status must be one of the following values: draft, active, inactive`
 You used a retired value — most likely `enabled`/`disabled`, which were replaced by `active`/`inactive` (plus the new `draft` default).
@@ -812,48 +803,7 @@ When a user asks for any of these: explain the gap, propose either (a) staying i
 
 ---
 
-## 14. Sourceable env shim pattern
-
-When working against a tenant repeatedly, a sourceable shim that reads tokens from Insomnia at runtime is easier than copy-pasting JWTs:
-
-```bash
-#!/usr/bin/env bash
-# load-env.sh — gitignore this file.
-INSOMNIA_DB="$HOME/Library/Application Support/Insomnia/insomnia.Environment.db"
-
-eval "$(python3 - <<'PYEOF'
-import json, os, sys
-db = os.path.expanduser("~/Library/Application Support/Insomnia/insomnia.Environment.db")
-target_name = os.environ.get("INSOMNIA_ENV", "dev-standalone")
-latest = {}
-with open(db) as f:
-    for line in f:
-        try:
-            o = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        rid = o.get("_id", "")
-        if rid and (rid not in latest or o.get("modified", 0) > latest[rid].get("modified", 0)):
-            latest[rid] = o
-target = next((o for o in latest.values() if (o.get("name") or "").lower() == target_name.lower()), None)
-if not target:
-    print(f"echo 'load-env.sh: env {target_name!r} not found' >&2", file=sys.stdout)
-    sys.exit(0)
-data = target.get("data") or {}
-base_url = (data.get("base_url") or {}).get("api", "")
-access = (data.get("token") or {}).get("access", "") if isinstance(data.get("token"), dict) else ""
-print(f"export AUTOMATION_SERVICE_URL='{base_url}'")
-print(f"export AUTOMATION_SERVICE_TOKEN='{access}'")
-print(f"echo 'load-env.sh: pointed at {target_name} ({base_url}, token {len(access)} chars)'")
-PYEOF
-)"
-```
-
-Usage: `INSOMNIA_ENV=prod-temp source ./load-env.sh`. Re-source after re-authenticating in Insomnia.
-
----
-
-## 15. Cleanup
+## 14. Cleanup
 
 Always end an experiment by deleting your created automations. Track ids in a local `created-automations.json` as you go:
 
@@ -882,14 +832,10 @@ curl -s -H "Authorization: Bearer $AUTOMATION_SERVICE_TOKEN" \
 
 ---
 
-## 16. References
+## 15. References
 
-- **Source of truth (when this skill is stale):**
-  - `automation-service` repo on GitHub — `packages/actions/src/**` for action definitions, `apps/automation-service/src/automations/dto/**` for DTOs
-  - `automation-engine-invoker` repo — per-action implementations
-  - Live `GET /automations/swagger/v3-json` on the target tenant
-- **In-product docs:** Skedulo developer docs (search "automations") — these can lag the API
-- **Step Functions JSONata:** AWS docs at `docs.aws.amazon.com/step-functions/latest/dg/transforming-data.html` — but note the platform's implementation diverges (no `\'`, parens-required blocks)
+- **Source of truth (when this skill is stale):** live `GET /automations/swagger/v3-json` on the target tenant
+- **In-product docs:** Skedulo developer docs at `developer.skedulo.com` (search "automations") — these can lag the API
 - **Companion skill:** `connected-function-developer` — when an automation can't express the case and you need a serverless API instead
 
 When in doubt, fetch the live OpenAPI spec from the tenant — that always wins over any cached doc.

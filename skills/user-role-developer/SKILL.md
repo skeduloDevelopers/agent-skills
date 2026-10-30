@@ -137,7 +137,7 @@ sked artifacts user-role delete -a <alias> --name <NAME>                  # dele
 ## Workspace Layout (in the consuming project)
 
 ```text
-<project>/                                   # CX project root = sked package root
+<project>/                                   # project root = sked package root
 ├── skeduloPackage.json
 ├── SPEC.md                                  # role spec, progress tracking
 └── src/
@@ -146,8 +146,7 @@ sked artifacts user-role delete -a <alias> --name <NAME>                  # dele
         └── Regional Dispatcher.user-role.json
 ```
 
-Flat files, one per role, under `src/user-roles/` — matching the canonical CX project templates
-(`CXPulseProjectTemplate` / `CXProjectTemplateExample`). The CX project root (the directory
+Flat files, one per role, under `src/user-roles/` — matching the standard project layout. The project root (the directory
 holding `skeduloPackage.json`) is a valid `sked` package directory, so the project can also be
 deployed whole via package mode. User-role files have no inter-artifact dependencies on each
 other, so deploy order among them does not matter.
