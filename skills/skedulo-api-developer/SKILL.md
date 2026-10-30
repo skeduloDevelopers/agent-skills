@@ -9,13 +9,6 @@ This skill provides expert patterns for building efficient, performant solutions
 
 ## Core Principles
 
-### Get a solid understanding of the Skedulo API
-- Read https://docs.skedulo.com/skedulo-api/ and:
-1. Understand the structure of all available API endpoints
-2. Note authentication methods
-3. Identify rate limits and constraints
-4. Understand key GraphQL operations and EQL expressions
-
 ### Always Initialize Execution Context First
 
 Every Pulse function starts with an execution context. This context provides access to all services and automatically adds tracking headers for observability.
@@ -133,15 +126,41 @@ Some example filters:
 - `DISTANCE(GeoLocation, GEOLOCATION(-27.8, 153.3)) < 50000`
 - `DISTANCE(GeoLocation, GEOLOCATION(37.774900, -122.419400)) > 1000 AND Name LIKE '%San Francisco%'`
 
-#### Handling Date Values
-The GraphQL schema expects `Instant` type values (without quotes) for date fields like `Start`. Follow the Correct example below.
+#### Common Mistake: `IN [...]` vs `IN (...)`
+
+`IN` has two forms and they are not interchangeable:
+
+- `IN [list]` — square brackets, for a literal list of values: `Name IN ['Salesforce', 'Standalone']`
+- `IN (SELECT ...)` — parentheses, for a subquery only: `UID IN (SELECT JobId FROM JobOffers WHERE Status != 'Closed')`
+
+**BAD**
+
+```tsx
+const filter = `UID IN (${tagIds.map((id) => `'${id}'`).join(", ")})`
+// Parentheses with a literal list is invalid EQL syntax
+```
+
+**CORRECT**
+
+```tsx
+const filter = `UID IN [${tagIds.map((id) => `'${id}'`).join(", ")}]`
+// Square brackets for a literal list of values
+```
+
+Swapping the two forms does not raise an error — the query silently matches zero rows. If the calling code wraps the query in a best-effort try/catch, this failure is invisible: no exception, no log, just missing data. Always double-check which form you need before writing the filter, and confirm in a test that the resulting records are non-empty rather than only asserting the call succeeded.
+
+#### Common Mistake: Quoting Instant/Date Literals
+
+| Type | Quoting | Example |
+|------|---------|---------|
+| `Instant`, `Date`, `Local Date`, `Local Time` | **Unquoted** | `Start > 2026-07-04T10:34:04.245Z` |
+| `String`, `ID` | **Quoted** | `JobStatus == 'Pending'`, `UID == 'abc-123'` |
 
 **BAD**
 
 ```tsx
 const filter = `AccountId == '${accountId}' AND Start >= '${startDate}' AND Start <= '${endDate}'`
 // Result: AccountId == 'xxx' AND Start >= '2025-10-30T14:00:00.000Z' AND Start <= '2025-12-26T13:59:59.999Z'
-
 ```
 
 **CORRECT**
@@ -150,6 +169,8 @@ const filter = `AccountId == '${accountId}' AND Start >= '${startDate}' AND Star
 const filter = `AccountId == '${accountId}' AND Start >= ${startDate} AND Start <= ${endDate}`
 // Result: AccountId == 'xxx' AND Start >= 2025-10-30T14:00:00.000Z AND Start <= 2025-12-26T13:59:59.999Z
 ```
+
+Quoting a datetime turns it into a String literal and the platform rejects the query at runtime with `HTTP 400: Expected type Instant but got String`. If the call is wrapped in a best-effort try/catch, this is invisible — no exception surfaces, no test fails, the query just silently returns nothing. Test filter-construction code by asserting on the literal string passed to `withFilter(...)`, not just that the query resolved.
 
 ### Query Patterns
 
@@ -291,7 +312,7 @@ Apply filters and limits to reduce data transfer:
 ```javascript
 const queryBuilder = context
   .newQueryBuilder({ objectName: "Jobs", operationName: "recentJobs" })
-  .withFilter(`Start >= '${startDate}' AND Start <= '${endDate}'`)
+  .withFilter(`Start >= ${startDate} AND Start <= ${endDate}`)
   .withLimit(200);
 ```
 
@@ -644,20 +665,6 @@ async function getAllJobs(context) {
   return pages.flatMap(page => page.records);
 }
 ```
-
-## Best Practices Summary
-
-1. **Initialize context with meaningful identifiers** for debugging
-2. **Set appropriate execution limits** based on your function's needs
-3. **Use cursor pagination** for datasets over 1000 records
-4. **Batch multiple independent queries** with Promise.all
-5. **Select only needed fields** to reduce data transfer
-6. **Use GraphBatch** for processing large datasets
-7. **Implement proper error handling** with try-catch blocks
-8. **Cache expensive operations** to improve performance
-9. **Use UniqueGraphBatch** to prevent duplicate runs
-10. **Log structured data** for better observability
-11. **ALWAYS user proper types** instead of `any`. Validate props with Typescript
 
 ## References
 

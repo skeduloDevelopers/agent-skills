@@ -59,7 +59,7 @@ Located in `mex_definition/`. This file contains characteristics and rules for t
 ```json
 {
   "summary": "Record safety inspection results for a job",
-  "email": "admin@skedulo.com",
+  "email": "admin@example.com",
   "contextObject": "Jobs",
   "revision": 1,
   "displayOrder": 10,

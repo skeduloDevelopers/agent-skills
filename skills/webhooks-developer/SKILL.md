@@ -1,6 +1,6 @@
 ---
 name: webhooks-developer
-description: This skill enables Claude to author, edit, review, and deploy Skedulo Pulse Webhooks — the two event-automation cases that Triggered Actions cannot cover: scheduled (cron) execution and inbound SMS handling. Covers the canonical Webhook state-file shape (metadata / name / webhook), the 2 in-scope webhook types (`scheduled`, `inbound_sms`), cron expression syntax, inbound-SMS prerequisites (a Skedulo-provisioned Twilio number), HTTPS-only URLs, configuration-variable templating (allowed on `url` and `headers` only), the server-assigned read-only `repeatableId`, the headers Skedulo sets on outgoing requests, retries/timeouts, the shared triggered-actions log surface, and the platform rules that cause `sked artifacts webhook upsert` to reject otherwise-valid-looking JSON. For object INSERT/UPDATE/DELETE automations, use the triggered-actions plugin instead.
+description: "This skill enables Claude to author, edit, review, and deploy Skedulo Pulse Webhooks — the two event-automation cases that Triggered Actions cannot cover: scheduled (cron) execution and inbound SMS handling. Covers the canonical Webhook state-file shape (metadata / name / webhook), the 2 in-scope webhook types (`scheduled`, `inbound_sms`), cron expression syntax, inbound-SMS prerequisites (a Skedulo-provisioned Twilio number), HTTPS-only URLs, configuration-variable templating (allowed on `url` and `headers` only), the server-assigned read-only `repeatableId`, the headers Skedulo sets on outgoing requests, retries/timeouts, the shared triggered-actions log surface, and the platform rules that cause `sked artifacts webhook upsert` to reject otherwise-valid-looking JSON. For object INSERT/UPDATE/DELETE automations, use the triggered-actions plugin instead."
 ---
 # Skedulo Pulse Webhooks Skill
 
@@ -15,23 +15,43 @@ This plugin scopes Webhooks to the **two things a Triggered Action cannot do**:
 
 Both deliver an HTTP POST to a URL you control — typically a Connected Function (Pulse) or an external service that does the real work. The Webhook is just the wiring that decides *when* to call it.
 
-## Webhooks vs Triggered Actions (when to use which)
+## Goal
 
-Default to **Triggered Actions** for all event-driven work. Reach for a **Webhook** ONLY when one of these two features is required:
+Produce deploy-ready Webhook state files: correct shape for the chosen type, a valid schedule where
+one applies, config-var-templated URLs and headers, tracked in `SPEC.md`, clean under
+`scripts/validate_webhooks.py` and reviewed against `references/review-checklist.md`.
 
-| Feature                                                       | Triggered Action | Webhook            |
-| ------------------------------------------------------------- | ---------------- | ------------------ |
-| Fire on object INSERT / UPDATE / DELETE                       | ✅               | ✅ (`graphql`)     |
-| Include previous-values payload                               | ✅               | ✅                 |
-| Retrieve extra data via GraphQL query after the trigger fires | ✅               | ❌                 |
-| Send an SMS **as the action**                                 | ✅               | ❌                 |
-| Fire after a time offset (deferred)                           | ✅               | ✅                 |
-| Fire on a **cron schedule**                                   | ❌               | ✅ — webhook-only |
-| Fire on **inbound SMS**                                       | ❌               | ✅ — webhook-only |
+## Guardrails
 
-If your use case is **not** cron-based and **not** inbound-SMS-based, it is a Triggered Action — use the `triggered-actions` plugin. This plugin deliberately covers only the two webhook-exclusive types (`scheduled`, `inbound_sms`). The platform also supports `graphql` and `graphql_deferred` webhook types for object changes, but those overlap with Triggered Actions and are out of scope here — author them as Triggered Actions instead.
+Platform rules that reject otherwise-valid-looking JSON, or cause silent runtime misbehaviour:
 
-> A Webhook **cannot send an SMS** and **cannot run a GraphQL query after firing**. Both are Triggered-Action-only. A Webhook's only side effect is the HTTP POST.
+- `metadata.type` is the literal `"Webhook"`. A Webhook is **flat** — no `trigger` / `action` split,
+  no `enabled` flag, no top-level `description`. To pause one you delete it or repoint its `url`.
+  Copying a Triggered Action file over is the common way to get all of these wrong.
+- `webhook.url` must be HTTPS. `http://` is rejected at upsert, including localhost — tunnel
+  (ngrok) for local testing.
+- `webhook.type` is `"scheduled"` or `"inbound_sms"` here. `graphql` / `graphql_deferred` exist on
+  the platform but object-change work belongs in the `triggered-actions` plugin — see
+  `references/ta-vs-webhook.md`.
+- `scheduled` requires a valid 5-field `cron`, evaluated on the platform's **UTC** clock; there is
+  no sub-minute schedule. Its POST body is always `{}` — no record context.
+- `inbound_sms` requires a **Skedulo-provisioned Twilio number**, which you cannot self-provision —
+  contact your CSM. The artifact upserts fine without it and then never fires.
+- Never author `repeatableId` — server-assigned and read-only; strip it from retrieved files before
+  redeploying, especially cross-tenant.
+- Configuration variables substitute only in `webhook.url` and `webhook.headers`. A referenced but
+  unregistered var fails the webhook at fire time.
+- The receiving endpoint must be **idempotent** — up to 6 attempts per fire on timeout/5xx.
+- Sandbox and production are provisioned separately: number and API user per environment.
+
+A Webhook cannot send an SMS and cannot run a GraphQL query after firing — both are
+Triggered-Action-only. Its only side effect is the HTTP POST.
+
+## Webhooks vs Triggered Actions
+
+See `references/ta-vs-webhook.md` for the decision matrix. In short: reach for a Webhook only when
+the trigger is a cron schedule or an inbound SMS; everything driven by object changes is a
+Triggered Action.
 
 ## Authentication & Prerequisites
 
@@ -207,7 +227,7 @@ In addition to any `headers` you author, Skedulo always sends:
 | Header                         | Value / Purpose                                                                                  |
 | ------------------------------ | ------------------------------------------------------------------------------------------------ |
 | `User-Agent`                   | Literal `Skedulo-Webhook` — identifies the caller.                                               |
-| `Skedulo-Webhook-Id`           | The webhook's configuration UID — **stable across every fire**. Key idempotency/dedup off this. |
+| `Skedulo-Webhook-Id`           | The webhook's configuration UID — **stable across every fire**, so it identifies the webhook, not the delivery. Not a dedup key. |
 | `Skedulo-Request-Id`           | Per-request ID (changes on every fire). Same value as `Skedulo-Triggeredactionlogid`.            |
 | `Skedulo-Triggeredactionlogid` | Per-request log ID — webhooks carry this too, since they are implemented as triggered actions.   |
 
@@ -225,7 +245,7 @@ If no response is received within **25 seconds**, or the response status is not 
 | 4       | 30 minutes         |
 | 5       | 3 hours            |
 
-Because retries can replay the same call, the receiving endpoint must be **idempotent** — key dedup logic off `Skedulo-Webhook-Id` + the request payload.
+Because retries can replay the same call, the receiving endpoint must be **idempotent**. `Skedulo-Webhook-Id` + payload does **not** work as the key: the header is the configuration UID and never changes, and a `scheduled` body is always `{}`, so the pair is constant for the life of the webhook — a receiver keyed on it accepts the first fire and silently discards every one after. (The triggered-actions guidance is the analogue that *does* work, because `Skedulo-Triggeredactionid` is paired with a per-record `UID` that varies; a scheduled webhook has no such discriminator.) `Skedulo-Request-Id` is the per-request identifier and the only candidate, but whether it survives the retries of one fire — the property an idempotency key needs — is not documented. Confirm with Skedulo before depending on it, and otherwise make the handler's effect idempotent on its own terms.
 
 ## Logs & Debugging
 
@@ -249,21 +269,6 @@ Each entry includes the URL called, the request body, the response status + head
 
 The `<api-base>` matches the tenant's API base path (e.g. `https://api.au.skedulo.com`, `https://api.skedulo.com`) — see `sked tenant list`.
 
-## Pulse Rules (the critical checklist)
-
-These are the platform-enforced rules that cause `sked artifacts webhook upsert` to reject otherwise-valid-looking JSON, or cause silent runtime misbehaviour. The review-agent enforces all of them as Critical or High findings.
-
-1. **`metadata.type` must be the literal `"Webhook"`** — not `"TriggeredAction"`. A copied Triggered Action file will deploy to the wrong artifact surface or be rejected.
-2. **`webhook.url` must be HTTPS.** `http://` is rejected at upsert — including localhost. Use a tunnel (ngrok) for local testing.
-3. **`webhook.type` must be `"scheduled"` or `"inbound_sms"`** for this plugin. `graphql` / `graphql_deferred` are object-change webhooks — author those as Triggered Actions instead.
-4. **`scheduled` webhooks REQUIRE a valid 5-field `cron`.** A missing or malformed cron is rejected (or never fires). The body delivered is always empty `{}` — do not expect record context.
-5. **`inbound_sms` webhooks REQUIRE a Skedulo-provisioned number** to actually fire. The artifact upserts without it, but stays silent. Flag "number provisioned with CSM?" in the deploy checklist.
-6. **Never author `repeatableId`.** It is server-assigned and appears only on `get` for scheduled webhooks. Including a stale value from a different tenant can cause confusing upsert behaviour — strip it from retrieved files before re-deploying to a different tenant.
-7. **No `enabled` flag exists** on a Webhook. Do not copy `enabled` over from a Triggered Action file — it is not part of the schema.
-8. **Configuration variables substitute only in `webhook.url` and `webhook.headers`.** There is nowhere else on a Webhook they apply. A referenced-but-unregistered config var fails the webhook at fire time.
-9. **The endpoint must be idempotent** — the platform retries up to 6 times on timeout/5xx, so the same POST can land more than once.
-10. **Skedulo for Salesforce — provision the inbound number and register the API user per environment.** Sandbox and production are configured separately; a webhook that works in sandbox can be silent in production if the prod number/API user is missing.
-
 ## Common Patterns (the starter templates)
 
 The plugin ships starter templates under `templates/`. Scaffold one via `/webhooks:build template:<name>`:
@@ -285,11 +290,16 @@ On Skedulo for Salesforce projects (Salesforce is the system of record, Pulse la
 1. **Provision the inbound SMS number and configure the Skedulo API user per environment** (sandbox AND production) before relying on an `inbound_sms` webhook. These are per-tenant Pulse settings, not code.
 2. **Use config vars for `url`/`headers`** so the same state file deploys unchanged across environments — only the config-var values (the per-env Connected Function URL, auth token) differ.
 
-## Authoring Workflow Recap
+## References
 
-1. **Init session** — `/webhooks:build "<requirements>"` or `/webhooks:build template:<name>` or `/webhooks:build retrieve:<Name1>,<Name2> --alias <alias>`. Init agent scaffolds `SPEC.md` + `src/webhooks/`, then stops.
-2. **Coding session** (new session) — `/webhooks:build`. Coding agent reads `SPEC.md`, generates the `.webhook.json` files, then auto-spawns the review agent via the SubagentStop hook.
-3. **Review** — the review agent validates the Webhook state-file shape, cron syntax, HTTPS-only URLs, type scope, config-var usage, and the Pulse Rules above.
-4. **Deploy** — `/webhooks:deploy --alias <alias>`. Explicit and non-autonomous. Per-file `sked artifacts webhook upsert -a <alias> -f <file>`.
+- `references/ta-vs-webhook.md` — Webhook vs Triggered Action decision matrix (canonical copy lives
+  in the `triggered-actions` plugin; kept in sync by `scripts/sync-shared.sh`).
+- `references/review-checklist.md` — the judgement items for review; structural rules belong to
+  `scripts/validate_webhooks.py`.
 
-The coding agent NEVER deploys autonomously. Deploy stays a deliberate, separate command.
+## Authoring Workflow
+
+`/webhooks:build "<requirements>"` (or `template:<name>`, or `retrieve:<Name> --alias <alias>`) runs
+the build agent end-to-end: requirements → scaffold + `SPEC.md` → implement → validate → inline
+review. Re-running resumes from `SPEC.md`. Deploy is always a separate, explicit step —
+`/webhooks:deploy --alias <alias>`, which upserts per file.

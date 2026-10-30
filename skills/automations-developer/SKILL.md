@@ -1,13 +1,13 @@
 ---
 name: automations-developer
-description: This skill enables Claude to create, edit, and deploy Skedulo Pulse automations via the Automations REST API. Captures the full action/trigger vocabulary, the 9 undocumented schema corrections required to actually get automations to load, JSONata-in-Step-Functions gotchas, and proven workflow patterns. Use any time the user wants to author or edit an automation, debug a 400/500 from the Automations API, or translate a customer webhook/triggered-action into the automation platform.
+description: This skill enables Claude to create, edit, and deploy Skedulo Pulse automations via the Automations REST API. Captures the full action/trigger vocabulary, the 9 undocumented schema corrections required to actually get automations to load, JSONata gotchas, and proven workflow patterns. Use any time the user wants to author or edit an automation, debug a 400/500 from the Automations API, or translate a customer webhook/triggered-action into the automation platform.
 ---
 
 # Skedulo Automations Developer Skill
 
 ## What this skill covers
 
-Skedulo Automations are AWS Step Functions state machines authored as JSON, triggered by tenant data events, and saved through a REST API. This skill is the working reference for building them — schema, trigger types, action vocabulary, JSONata gotchas, and end-to-end workflow.
+Skedulo Automations are workflows authored as JSON state machines, triggered by tenant data events, and saved through a REST API. This skill is the working reference for building them — schema, trigger types, action vocabulary, JSONata gotchas, and end-to-end workflow.
 
 **Use this skill when:**
 - Writing a new automation JSON
@@ -19,13 +19,12 @@ Skedulo Automations are AWS Step Functions state machines authored as JSON, trig
 **Do NOT use this skill for:**
 - Writing connected functions (use `connected-function-developer` instead)
 - Building horizon-component UIs that consume automations (use `horizon-component-developer`)
-- Direct AWS Step Functions work outside Skedulo's wrapper (most of what's here is Skedulo-specific)
 
 ---
 
 ## 1. Architecture in one paragraph
 
-The Skedulo Automations service exposes a REST API on every tenant's base URL. Each automation is persisted as `{name, description, trigger, workflow, status}`. Triggers fire on platform change events (objectModified) — the runtime evaluates a trigger condition, then dispatches the workflow to an orchestration service. Tasks invoke a per-action handler. JSONata expressions wrapped in `{% ... %}` are evaluated by the platform's built-in JSONata engine. The platform auto-injects `QueryLanguage: "JSONata"` and an `Assign` block per Task; you don't set those.
+The Automations API is exposed on every tenant's `<base_url.api>` host. Each automation is persisted as `{name, description, trigger, workflow, status}`. `recordModified` triggers fire on platform change events — the runtime resolves `shouldTrigger`, then runs the workflow. Each Task invokes the named action. JSONata expressions wrapped in `{% ... %}` are evaluated by the workflow runtime. The platform auto-injects `QueryLanguage: "JSONata"` and an `Assign` block per Task; you don't set those.
 
 ---
 
@@ -33,33 +32,34 @@ The Skedulo Automations service exposes a REST API on every tenant's base URL. E
 
 ### Base URL
 
-Per-tenant. Read from the tenant's Insomnia environment, the platform UI URL bar, or your CLI config. Format: `https://<tenant-host>` — automations live under `/automations/`.
-
-```text
-https://api.skedulo.com            # production tenants
-```
+Use the API host for your tenant: `https://api.skedulo.com` for most production tenants, or the regional API host shown in your tenant's `sked` CLI configuration. Automations live under `/automations/`.
 
 ### Auth
 
 All requests use `Authorization: Bearer <jwt>`. Get the token from:
-- The `sked` CLI: `sked auth print-token`
-- An OAuth2 interactive flow against the tenant's OAuth2 endpoint
+- The `sked` CLI (`sked auth print-token`)
+- An OAuth2 flow against the tenant's auth service
+
+Export the token and base URL as environment variables (`AUTOMATION_SERVICE_URL`, `AUTOMATION_SERVICE_TOKEN`) for the examples below.
 
 ### Endpoints
 
 | Method | Path | Purpose |
-|--------|------|----------|
+|--------|------|---------|
 | `GET` | `/automations/` | List all automations on the tenant |
 | `POST` | `/automations/` | Create an automation |
 | `GET` | `/automations/<name>` | Fetch by URL-encoded name |
 | `PUT` | `/automations/<name>` | Update (full replacement) |
 | `DELETE` | `/automations/<id-or-name>` | Delete |
-| `POST` | `/automations/<name>/enable` | Enable (status → enabled) |
-| `POST` | `/automations/<name>/disable` | Disable (status → disabled) |
-| `POST` | `/automations/<name>/execute` | Manually invoke for testing |
+| `POST` | `/automations/<name>/activate` | Activate (status → active). `409` if the tenant is at its active cap (see §3) |
+| `POST` | `/automations/<name>/deactivate` | Deactivate (status → inactive) |
+| `POST` | `/automations/time-offset/preview` | Count records a `recordTimeOffset` config would schedule — body is the trigger `config`; returns `{ matchingRecordCount }` |
 | `GET` | `/automations/logs` | Tail recent execution logs |
 | `GET` | `/automations/actions` | Live list of available actions on this tenant |
+| `GET` | `/automations/triggers` | Live trigger registry — config schema for each trigger type |
 | `GET` | `/automations/swagger/v3-json` | OpenAPI JSON for the full surface |
+
+There is no manual-execute endpoint. To exercise an automation, emit a real change event that matches its trigger.
 
 When in doubt, fetch `/automations/swagger/v3-json` — it's the source of truth.
 
@@ -74,7 +74,7 @@ Required top-level shape for `POST /automations/`:
   "name": "my-automation-name",
   "description": "What this does",
   "trigger": {
-    "type": "objectModified",
+    "type": "recordModified",
     "config": {
       "objectType": "Jobs",
       "operations": ["Update"],
@@ -87,7 +87,7 @@ Required top-level shape for `POST /automations/`:
       "States": { "FirstState": { "Type": "Succeed" } }
     }
   },
-  "status": "disabled"
+  "status": "inactive"
 }
 ```
 
@@ -95,23 +95,28 @@ Required top-level shape for `POST /automations/`:
 
 - `name` — unique within tenant; `^[A-Za-z0-9 \-._~]+$` only. Trimmed by the API.
 - `description` — optional. Use it for the source-handler reference + maintainer notes.
-- `trigger` — see §4. Must be present before `enable` succeeds.
-- `workflow.definition` — Amazon States Language state machine. **Wrapped in `definition`**, not inline at `workflow`.
-- `status` — `"enabled"` or `"disabled"`. **API defaults to `"enabled"`** if absent. **Always set explicitly to `"disabled"` for new loads** unless the user has confirmed they want it live.
+- `trigger` — see §4. Optional while the automation is a `draft`; required before it can be activated (and re-validated on any non-draft save).
+- `workflow.definition` — Amazon States Language state machine. **Wrapped in `definition`**, not inline at `workflow`. Same draft rule as `trigger`: optional for a draft, required otherwise.
+- `status` — one of `"draft"`, `"active"`, `"inactive"`. **The API defaults to `"draft"`** if absent. A `draft` is saved **without trigger/workflow validation and never runs** — it's the safe state for work-in-progress. `active` runs on its trigger; `inactive` is a fully-validated automation that is switched off. (This replaces the old `enabled`/`disabled` model — those values are no longer accepted.)
+
+### Status model and the active cap
+
+- Lifecycle: author as `draft` (or omit `status`) → `activate` to make it `active` → `deactivate` to `inactive`. Activation validates the trigger and workflow.
+- **Active-automations cap:** a tenant may have at most **25** automations `active` by default. Creating-as-active, or `POST /<name>/activate`, returns **`409 Conflict`** ("You have reached the maximum of N active automations") when the tenant is already at the cap. Drafts and inactive automations don't count.
 
 ---
 
-## 4. Trigger types — what's implemented today
+## 4. Trigger types
 
-The trigger configuration supports two types, but only one is wired end-to-end:
+There are four trigger types: `recordModified`, `event`, `recordTimeOffset`, `scheduled`. `config` is validated per trigger type. Fetch `GET /automations/triggers` for the live config schema of each.
 
-### `objectModified` — IMPLEMENTED ✓
+### `recordModified`
 
-Fires on platform change events from any data-model record write.
+Fires on change events from any data-model record write. (This was previously named `objectModified`; the rename migration means the old value is now rejected.)
 
 ```json
 {
-  "type": "objectModified",
+  "type": "recordModified",
   "config": {
     "objectType": "Jobs",
     "operations": ["Insert", "Update", "Delete"],
@@ -124,35 +129,83 @@ Fires on platform change events from any data-model record write.
 - `operations` — array of `Insert`, `Update`, `Delete`. At least one required.
 - `filter` — **non-empty** EQL filter applied to the post-state. Use `UID != null` for "always". Cannot reference `Previous.X` (post-state only — see §10 for field-change detection workaround).
 
-### `event` — DECLARED BUT NOT IMPLEMENTED ✗
+### `event`
 
-`TriggerType.EVENT = "event"` exists in the enum and `vocabulary.md` lists it as supported. **It is not wired through.** The `CreateTriggerDto.config` only types `ObjectModifiedConfigDto`; there is no `EventConfigDto`. Posting an `event`-typed trigger fails 400 because the API still validates `config.objectType / operations / filter`. The runtime trigger flow only handles `SchemaChangeV2Event`.
+Fires when a namespaced platform event arrives (e.g. a rules violation).
 
-If a user asks for an event-driven automation: explain that event triggers aren't supported yet and the customer code still needs to live in a connected function until the platform ships them.
+```json
+{
+  "type": "event",
+  "config": {
+    "eventType": "rules.violation",
+    "filter": "Severity == 'High'"
+  }
+}
+```
 
-### `deferred` and `scheduled` — NOT SUPPORTED
+- `eventType` — namespaced event type to subscribe to. Required.
+- `filter` — optional EQL over the event payload.
 
-There is no offset-from-field deferred trigger and no cron-style scheduled trigger. Customer patterns that need these (job reminders, SLA escalations, daily/weekly cron, retry queues) cannot be expressed as automations today.
+### `recordTimeOffset`
+
+Fires at a time computed relative to a date/datetime field on records matching a condition — the primitive for reminders and SLA escalations.
+
+```json
+{
+  "type": "recordTimeOffset",
+  "config": {
+    "objectType": "Jobs",
+    "condition": "JobStatus == 'Confirmed'",
+    "fieldName": "Start",
+    "offset": -3600
+  }
+}
+```
+
+- `objectType` — schema name to monitor.
+- `condition` — plain EQL over the record's current state selecting which records are scheduled.
+- `fieldName` — the anchor date/datetime field.
+- `offset` — seconds relative to the anchor (negative fires before it), or `{ fieldName, divisor?, default? }` to read the offset from a record field.
+
+**Backfill:** creating, activating, or editing an **active** `recordTimeOffset` automation triggers a backfill — the service queries every record currently matching `condition` and schedules a task for each, so the rule takes effect immediately for records that already match (not only on future changes). Records whose computed time (`anchor + offset`) is already in the past are skipped. Preview the count first with `POST /automations/time-offset/preview` (body: this `config`) → `{ matchingRecordCount }`, which excludes past-due and null-anchor records for a numeric offset (an upper bound for a field-read offset).
+
+### `scheduled`
+
+Cron-style trigger, evaluated in a required IANA timezone.
+
+```json
+{
+  "type": "scheduled",
+  "config": {
+    "schedule": "0 9 * * 1",
+    "timezone": "Australia/Brisbane"
+  }
+}
+```
+
+- `schedule` — cron expression.
+- `timezone` — IANA timezone the cron is evaluated in. Required.
 
 ---
 
 ## 5. Action vocabulary
 
-The platform ships ~34 actions across 8 categories. The canonical live list is available at `GET /automations/actions`.
+The platform ships ~38 actions across 10 categories. The canonical list is live at `GET /automations/actions`.
 
-### Quick reference (as of 2026-04)
+### Quick reference (as of 2026-07)
 
 | Category | Actions |
 |----------|---------|
 | **utility** | `echo` |
 | **integration** | `http` |
-| **data** | `query-record`, `graphql-query`, `create-record`, `update-records`, `delete-records` |
-| **related-data** | `get-jobs-for-resource`, `get-contacts-for-job`, `get-account-tags`, `get-resources-on-job` |
-| **work-management** | `create-job`, `cancel-jobs`, `lock-jobs`, `move-job-time`, `duplicate-job`, `copy-schedule`, `create-resource-requirement` |
-| **allocations** | `allocate-job`, `deallocate-jobs`, `dispatch-resources` |
-| **offers** | `create-job-offer`, `create-shift-offer`, `notify-job-offer`, `notify-shift-offer` |
-| **notifications** | `send-sms`, `send-notification` |
-| **scheduling** | `suggest-time`, `suggest-resources`, `suggest-region-for-job`, `geocode-address`, `calculate-travel-time`, `get-current-location`, `get-resources-within-distance` |
+| **data** | `get-record`, `graphql-query`, `create-record`, `update-records`, `delete-records` |
+| **related-data** | `get-jobs-for-resource`, `get-contact-for-job`, `get-resources-on-job` |
+| **work-management** | `create-job`, `cancel-jobs`, `lock-jobs`, `move-job-time`, `duplicate-job`, `create-resource-requirement` |
+| **allocations** | `allocate-job`, `deallocate-jobs`, `dispatch-resources`, `dispatch-jobs` |
+| **offers** | `create-job-offer`, `create-shift-offer` |
+| **notifications** | `send-sms`, `send-notification`, `notify-job-offer`, `notify-shift-offer` |
+| **scheduling** | `suggest-time`, `suggest-resources`, `find-closest-region`, `geocode-address`, `calculate-travel-time`, `get-resource-location`, `get-resources-within-distance` |
+| **ai** | `run-ai-agent`, `run-tempo-task`, `create-tempo-task`, `update-tempo-task`, `resolve-tempo-task` |
 
 ### Always check live first
 
@@ -165,10 +218,10 @@ curl -s -H "Authorization: Bearer $TOKEN" "$BASE/automations/actions" | jq -r '.
 ### Most-common action argument shapes
 
 | Action | Required args | Output shape |
-|--------|---------------|---------------|
+|--------|---------------|--------------|
 | `echo` | `message` | wrapped: `{result: {data: {message}}}` |
 | `http` | `url` (also `method`, `headers`, `body`) | **NOT wrapped:** `{statusCode, headers, body}` directly |
-| `query-record` | `objectType`, `id`, `fields[]` (dotted paths OK; **no hasMany**) | wrapped: `{result: {data: <record>}}` |
+| `get-record` | `objectType`, `id`, `fields[]` (dotted paths OK; **no hasMany**) | wrapped: `{result: {data: <record>}}` |
 | `graphql-query` | `query`, `variables` | wrapped: `{result: {data: <gql-shape>}}` |
 | `create-record` | `objectType`, `fields{}` | wrapped: `{result: {data: {uid}}}` |
 | `update-records` | `objectType`, `ids[]`, `fields{}` | wrapped: `{result: {data: {success}}}` |
@@ -186,13 +239,13 @@ $<assignedVar>.result.data.<actual-data-shape>
 
 `http` is the documented exception — its response is `{statusCode, headers, body}` directly without a `result` envelope. Reach for `body` directly: `$<assignedVar>.body`.
 
-Data actions are wrapped via `actionResponseSchema()`. The `http` action is the documented exception — its response is defined inline without the wrapper envelope.
+To check whether an action's response is wrapped, inspect its response schema in `GET /automations/actions`: a `result` envelope means wrapped; `http` returns its fields directly.
 
 ---
 
 ## 6. Workflow document shape (Amazon States Language)
 
-The `workflow.definition` is a Step Functions state machine. The platform supports the standard ASL state types: `Task`, `Choice`, `Pass`, `Wait`, `Parallel`, `Map`, `Succeed`, `Fail`.
+The `workflow.definition` is a JSON state machine in Amazon States Language (ASL) style. The platform supports the standard ASL state types: `Task`, `Choice`, `Pass`, `Wait`, `Parallel`, `Map`, `Succeed`, `Fail`.
 
 ```json
 {
@@ -200,7 +253,7 @@ The `workflow.definition` is a Step Functions state machine. The platform suppor
   "States": {
     "FirstState": {
       "Type": "Task",
-      "Resource": "action:query-record",
+      "Resource": "action:get-record",
       "Arguments": { /* per-action input */ },
       "Next": "SecondState"
     },
@@ -245,7 +298,7 @@ The `workflow.definition` is a Step Functions state machine. The platform suppor
 
 ### Resource ARN format — `action:<name>` prefix is REQUIRED
 
-ASL spec wants a Lambda ARN. The platform short-circuits this with a custom prefix:
+ASL expects a resource ARN. The platform uses a custom prefix instead:
 
 | Wrong | Right |
 |-------|-------|
@@ -268,7 +321,7 @@ The runtime exposes the trigger event as a top-level `$trigger`. Don't use `$sta
 |------|-------|
 | `$trigger.current.<field>` | Post-state record fields |
 | `$trigger.previous.<field>` | Pre-state for `Update` operations (often null for `Insert`) |
-| `$trigger.operation` | `"INSERT"`, `"UPDATE"`, or `"DELETE"` |
+| `$trigger.operation` | `"Insert"`, `"Update"`, or `"Delete"` |
 | `$trigger.objectType` | The schema name |
 
 ### State result reference: by Assign-variable name
@@ -276,7 +329,6 @@ The runtime exposes the trigger event as a top-level `$trigger`. Don't use `$sta
 The platform auto-generates an `Assign` block for each Task on save, binding the state's result to a variable named `toCamelCase(stateName)`:
 
 ```typescript
-// toCamelCase logic used by the platform to generate Assign variable names
 function toCamelCase(input: string): string {
   const tokens = input.split(/[^a-zA-Z0-9]+/).filter(Boolean)
   const words = tokens.flatMap(token =>
@@ -306,7 +358,7 @@ For `http`, drop the `.result.data` envelope: `{% $postToClearesult.body %}`, `{
 
 ### Block expressions need parentheses
 
-JSONata `;`-separated block expressions must be wrapped in parens — Step Functions' JSONata implementation rejects bare `expr1; expr2`:
+JSONata `;`-separated block expressions must be wrapped in parens — the workflow runtime's JSONata implementation rejects bare `expr1; expr2`:
 
 ```jsonata
 {% ($accountId := $trigger.current.UID; $now := $now(); 'query { ... ' & $accountId & ' ...') %}
@@ -314,12 +366,12 @@ JSONata `;`-separated block expressions must be wrapped in parens — Step Funct
 
 ### `\'` escape is rejected — use double-quoted JSONata strings
 
-Step Functions' JSONata rejects `\'` even though the public spec recognises it. Workaround: switch any string that contains a literal `'` to a double-quoted JSONata string. Inside `"..."` JSONata strings, `'` is literal (no escape needed).
+The workflow runtime's JSONata rejects `\'` even though the public spec recognises it. Workaround: switch any string that contains a literal `'` to a double-quoted JSONata string. Inside `"..."` JSONata strings, `'` is literal (no escape needed).
 
 **Wrong** (single-quoted JSONata, with backslash-escaped single quotes — fails):
 
 ```jsonata
-'query { jobs(filter: \"AccountId == \\\'\'' & $accountId & '\'\\\"\")") { ... } }'
+'query { jobs(filter: \"AccountId == \\'' & $accountId & '\\'\") { ... } }'
 ```
 
 **Right** (double-quoted JSONata, single quotes literal):
@@ -336,7 +388,7 @@ In JSON encoding, every `"` becomes `\"` and every `\` becomes `\\`. Build the J
 
 ### Trigger filter cannot reference `previous`
 
-The `objectModified.config.filter` runs against the post-state record only. To detect "field X changed", do it in a Choice state at the start of the workflow:
+The `recordModified.config.filter` runs against the post-state record only. To detect "field X changed", do it in a Choice state at the start of the workflow:
 
 ```json
 {
@@ -357,7 +409,7 @@ This adds 1 node + 1 expression per checked field. A native field-change predica
 
 ## 8. The pre-flight checklist
 
-These 9 corrections are not in any DTO file. Apply ALL of them before every POST.
+These 9 corrections are not in any DTO file. They came from iterating on real load failures during the cx-* validation experiment. Apply ALL of them before every POST.
 
 | # | Correction | Wrong → Right |
 |---|------------|---------------|
@@ -367,9 +419,9 @@ These 9 corrections are not in any DTO file. Apply ALL of them before every POST
 | 4 | Action responses are wrapped in `{result: {data, errors}}`; `http` is unwrapped | Use `.result.data.X` for normal actions, `.body` / `.statusCode` for `http` |
 | 5 | JSONata `\'` escape rejected | Switch to double-quoted JSONata outer strings; `'` is then literal |
 | 6 | JSONata block expressions need parens | `{% $x := y; expr %}` → `{% ($x := y; expr) %}` |
-| 7 | API `status` defaults to `enabled` | Always set `"status": "disabled"` explicitly for new loads |
+| 7 | API `status` defaults to `draft` (never runs, skips validation) | Author as `draft` (or omit `status`); `activate` only when ready. `enabled`/`disabled` are retired — use `active`/`inactive` |
 | 8 | Don't set `workflow.definition.QueryLanguage` | Service auto-injects |
-| 9 | `trigger.config.filter` must be non-empty for `objectModified` | Use `"UID != null"` for "always" |
+| 9 | `trigger.config.filter` must be non-empty for `recordModified` | Use `"UID != null"` for "always" |
 
 ---
 
@@ -405,7 +457,7 @@ Save to `<project-root>/automations/<source-id>.json`. Use a `validation-` or `d
 
 Run a glue counter to catch over-engineered cases before loading. Reference scale in §11.
 
-### Step 5: Load disabled
+### Step 5: Load as draft
 
 ```bash
 curl -X POST -H "Authorization: Bearer $AUTOMATION_SERVICE_TOKEN" \
@@ -419,27 +471,20 @@ The response gives you `id`. Verify with:
 ```bash
 curl -s -H "Authorization: Bearer $AUTOMATION_SERVICE_TOKEN" \
   "$AUTOMATION_SERVICE_URL/automations/<urlencoded-name>" | jq '.status'
-# expect "disabled"
+# expect "draft" (omit status on load, or set it explicitly)
 ```
 
-### Step 6: Inspect in the platform UI
+### Step 6: Inspect in the Phoenix UI
 
-Open your tenant's platform UI, navigate to the Automations app, search for your name. Confirm:
+Open `<base_url.ui>`, navigate to the Automations app, search for your name. Confirm:
 
 - Visual graph renders correctly
 - Property panels show the `Arguments`/`Condition` JSONata cleanly
-- Field-picker autocomplete works for `query-record.fields[]`
+- Field-picker autocomplete works for `get-record.fields[]`
 
-### Step 7: Manually execute (optional)
+### Step 7: Exercise it (optional)
 
-Trigger a real change event matching your filter, OR call the manual-invoke endpoint:
-
-```bash
-curl -X POST -H "Authorization: Bearer $AUTOMATION_SERVICE_TOKEN" \
-  -H "Content-Type: application/json" \
-  --data '{"current": {...}, "previous": {...}}' \
-  "$AUTOMATION_SERVICE_URL/automations/<name>/execute"
-```
+There is no manual-invoke endpoint. Enable the automation and trigger a real change event matching its filter (create/update the record the trigger watches), then read the logs to confirm it fired.
 
 Read logs:
 
@@ -448,13 +493,13 @@ curl -s -H "Authorization: Bearer $AUTOMATION_SERVICE_TOKEN" \
   "$AUTOMATION_SERVICE_URL/automations/logs?limit=20" | jq
 ```
 
-### Step 8: Enable for production traffic (optional)
+### Step 8: Activate for production traffic (optional)
 
-Only after the user has confirmed the side effects are intended:
+Only after the user has confirmed the side effects are intended. Activation validates the trigger/workflow and returns `409` if the tenant is already at its active cap (§3):
 
 ```bash
 curl -X POST -H "Authorization: Bearer $AUTOMATION_SERVICE_TOKEN" \
-  "$AUTOMATION_SERVICE_URL/automations/<name>/enable"
+  "$AUTOMATION_SERVICE_URL/automations/<name>/activate"
 ```
 
 ### Step 9: Cleanup (always, for experiments)
@@ -479,7 +524,7 @@ When a record's specific fields change, POST a payload to an external API.
   "name": "validation-mirror-on-field-change",
   "description": "When a Job's Start or End changes, sync to external API.",
   "trigger": {
-    "type": "objectModified",
+    "type": "recordModified",
     "config": { "objectType": "Jobs", "operations": ["Update"], "filter": "UID != null" }
   },
   "workflow": {
@@ -497,7 +542,7 @@ When a record's specific fields change, POST a payload to an external API.
         "NoChange": { "Type": "Succeed" },
         "FetchJob": {
           "Type": "Task",
-          "Resource": "action:query-record",
+          "Resource": "action:get-record",
           "Arguments": {
             "objectType": "Jobs",
             "id": "{% $trigger.current.UID %}",
@@ -524,7 +569,7 @@ When a record's specific fields change, POST a payload to an external API.
       }
     }
   },
-  "status": "disabled"
+  "status": "draft"
 }
 ```
 
@@ -537,7 +582,7 @@ Trigger fires on record change → query related records → apply same fields t
   "name": "validation-cascade-cancel",
   "description": "When an Account is discharged, cancel all of its open future jobs.",
   "trigger": {
-    "type": "objectModified",
+    "type": "recordModified",
     "config": { "objectType": "Accounts", "operations": ["Update"], "filter": "Status == 'Discharge'" }
   },
   "workflow": {
@@ -548,7 +593,7 @@ Trigger fires on record change → query related records → apply same fields t
           "Type": "Task",
           "Resource": "action:graphql-query",
           "Arguments": {
-            "query": "{% ($accountId := $trigger.current.UID; $cutoff := $trigger.current.DischargeDate ? $trigger.current.DischargeDate : $now(); \"query { jobs(filter: \\\"JobStatus != 'Cancelled' AND JobStatus != 'Complete' AND AccountId == '\" & $accountId & \"' AND Start >= \" & $cutoff & \"\\\"\") { edges { node { UID } } } }\") %}",
+            "query": "{% ($accountId := $trigger.current.UID; $cutoff := $trigger.current.DischargeDate ? $trigger.current.DischargeDate : $now(); \"query { jobs(filter: \\\"JobStatus != 'Cancelled' AND JobStatus != 'Complete' AND AccountId == '\" & $accountId & \"' AND Start >= \" & $cutoff & \"\\\") { edges { node { UID } } } }\") %}",
             "variables": {}
           },
           "Next": "DecideWhetherToCancel"
@@ -575,7 +620,7 @@ Trigger fires on record change → query related records → apply same fields t
       }
     }
   },
-  "status": "disabled"
+  "status": "draft"
 }
 ```
 
@@ -590,7 +635,7 @@ When a record's flag changes, demote siblings and update parent.
   "name": "validation-default-flag",
   "description": "When a Location is set Default, demote sibling Locations of the same Account and set Account.DefaultLocationId.",
   "trigger": {
-    "type": "objectModified",
+    "type": "recordModified",
     "config": { "objectType": "Locations", "operations": ["Insert", "Update"], "filter": "AccountId != null" }
   },
   "workflow": {
@@ -599,7 +644,7 @@ When a record's flag changes, demote siblings and update parent.
       "States": {
         "FetchAccount": {
           "Type": "Task",
-          "Resource": "action:query-record",
+          "Resource": "action:get-record",
           "Arguments": {
             "objectType": "Accounts",
             "id": "{% $trigger.current.AccountId %}",
@@ -626,7 +671,7 @@ When a record's flag changes, demote siblings and update parent.
           "Type": "Task",
           "Resource": "action:graphql-query",
           "Arguments": {
-            "query": "{% ($a := $trigger.current.AccountId; $u := $trigger.current.UID; \"query { locations(filter: \\\"AccountId == '\" & $a & \"' AND UID != '\" & $u & \"' AND Default == true\\\"\") { edges { node { UID } } } }\") %}",
+            "query": "{% ($a := $trigger.current.AccountId; $u := $trigger.current.UID; \"query { locations(filter: \\\"AccountId == '\" & $a & \"' AND UID != '\" & $u & \"' AND Default == true\\\") { edges { node { UID } } } }\") %}",
             "variables": {}
           },
           "Next": "DemoteIfAny"
@@ -672,7 +717,7 @@ When a record's flag changes, demote siblings and update parent.
       }
     }
   },
-  "status": "disabled"
+  "status": "draft"
 }
 ```
 
@@ -725,14 +770,20 @@ Replace single-quoted JSONata strings containing `\'` with double-quoted JSONata
 ### `each value in operations must be one of the following values: Insert, Update, Delete`
 Capitalisation matters for `operations[]`. `INSERT` / `UPDATE` / `DELETE` and `insert` / `update` / `delete` will both fail.
 
-### `objectType must be a string` on an `event`-typed trigger
-The `event` trigger isn't implemented. Re-scope to `objectModified`, or inform the user this case is platform-blocked.
+### `type must be one of the following values: recordModified, event, recordTimeOffset, scheduled`
+You used a retired type name — most likely the old `objectModified`, which was renamed to `recordModified`. Use one of the four current values.
 
 ### `name must only contain letters, numbers, spaces, hyphens, underscores, periods, and tildes`
 Self-explanatory. Strip any other characters (especially `/`, `:`, `@`).
 
 ### Unique-constraint violation on name
 Each name is unique within tenant. Append a timestamp or sequence number, or DELETE the existing one first.
+
+### `409 Conflict: You have reached the maximum of N active automations`
+The tenant is at its active-automations cap (default 25). Deactivate an existing automation first, or leave this one as a `draft`/`inactive`. Only `active` automations count toward the cap.
+
+### `status must be one of the following values: draft, active, inactive`
+You used a retired value — most likely `enabled`/`disabled`, which were replaced by `active`/`inactive` (plus the new `draft` default).
 
 ---
 
@@ -742,36 +793,17 @@ These are documented to save you (and the user) time spent trying to express the
 
 1. **No config-variable mechanism in actions.** The same automation cannot be deployed across tenants with different API endpoints / tokens / integration-user IDs. Per-tenant authoring is required today. _Highest-leverage missing primitive._
 2. **No loop-prevention.** Customers commonly skip events where `LastModifiedById == <integration-user>`. Without config-vars, can't reference the per-tenant integration user id.
-3. **`query-record` doesn't follow hasMany.** Forces `graphql-query` for any related-record fetch.
-4. **No `event` trigger** (see §4).
-5. **No deferred / scheduled triggers.**
-6. **No timezone-aware date math primitive.** JSONata's `$fromMillis`/`$toMillis` work in UTC only.
-7. **No recurrence-pattern expansion** (e.g. weekly/annual availability templates).
-8. **No upsert.** `update-records[ids]` requires the records to exist. Insert-if-missing needs a separate Choice → `create-record` branch.
-9. **No request-header access.** Trigger payload is the only input; headers don't surface.
+3. **`get-record` doesn't follow hasMany.** Forces `graphql-query` for any related-record fetch.
+4. **No timezone-aware date math primitive.** JSONata's `$fromMillis`/`$toMillis` work in UTC only. (The `scheduled` trigger takes an IANA timezone, but that only governs when it fires, not date math inside the workflow.)
+5. **No recurrence-pattern expansion** (e.g. weekly/annual availability templates). The `scheduled` trigger fires on a cron; it does not expand a template into per-occurrence records.
+6. **No upsert.** `update-records[ids]` requires the records to exist. Insert-if-missing needs a separate Choice → `create-record` branch.
+7. **No request-header access.** Trigger payload is the only input; headers don't surface.
 
 When a user asks for any of these: explain the gap, propose either (a) staying in a connected function, or (b) approximating with a known compromise.
 
 ---
 
-## 14. Setting up your environment
-
-When working against a tenant repeatedly, use the `sked` CLI to manage authentication:
-
-```bash
-# Authenticate with your tenant
-sked auth login
-
-# Export the token for use in API calls
-export AUTOMATION_SERVICE_TOKEN=$(sked auth print-token)
-export AUTOMATION_SERVICE_URL="https://api.skedulo.com"  # adjust per tenant
-```
-
-Re-run `sked auth login` when your token expires.
-
----
-
-## 15. Cleanup
+## 14. Cleanup
 
 Always end an experiment by deleting your created automations. Track ids in a local `created-automations.json` as you go:
 
@@ -800,12 +832,10 @@ curl -s -H "Authorization: Bearer $AUTOMATION_SERVICE_TOKEN" \
 
 ---
 
-## 16. References
+## 15. References
 
-- **Source of truth (when this skill is stale):**
-  - Live `GET /automations/swagger/v3-json` on the target tenant — this always reflects the current API surface
-- **In-product docs:** Skedulo developer docs (search "automations") — these can lag the API
-- **Step Functions JSONata:** AWS docs at `docs.aws.amazon.com/step-functions/latest/dg/transforming-data.html` — but note the platform's implementation diverges (no `\'`, parens-required blocks)
+- **Source of truth (when this skill is stale):** live `GET /automations/swagger/v3-json` on the target tenant
+- **In-product docs:** Skedulo developer docs at `developer.skedulo.com` (search "automations") — these can lag the API
 - **Companion skill:** `connected-function-developer` — when an automation can't express the case and you need a serverless API instead
 
 When in doubt, fetch the live OpenAPI spec from the tenant — that always wins over any cached doc.
