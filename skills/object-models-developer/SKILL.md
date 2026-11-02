@@ -211,8 +211,7 @@ authoring a field type for the first time in a session.
 ### Custom field on a standard object ("overlay")
 
 You only write the custom-field state file — the parent (`Jobs`, `Resources`, …) is
-platform-managed. Internally the platform calls this a `DataSchemaFieldOverlay` (HasMany:
-`DataSchemaRelationshipOverlay`) — those names surface in deploy error codes (see
+platform-managed. Deploy error codes may refer to this as a field overlay (see
 `commands/deploy.md` Step 6b for the fix crib). Overlays are tenant-wide: test in a non-prod
 tenant first.
 
