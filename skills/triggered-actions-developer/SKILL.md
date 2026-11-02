@@ -13,21 +13,55 @@ A Triggered Action is a **reactive, rule-driven** server-side automation that fi
 
 For richer logic, the `call_url` target is typically a Connected Function (Pulse) or external service; the Triggered Action is the wiring that decides *when* to call it and *what data* to send.
 
+## Goal
+
+Produce deploy-ready `.triggered-action.json` state files: valid TriggeredAction JSON with
+verified filter EQL, query, and template field references, tracked in SPEC.md, passing
+`scripts/validate_triggered_actions.py`, and reviewed against `references/review-checklist.md`.
+
+## Guardrails
+
+Platform rules you can't discover by reading the workspace — violations reject at upsert or
+misbehave silently at runtime:
+
+1. `filter` is mandatory and never empty for Triggered Actions (Webhooks differ). Deferred
+   Triggered Actions need an additionally narrow filter — the platform pre-computes future fire
+   slots at upsert, so every record matching the filter schedules a future fire; a broad filter
+   against `Jobs` or `JobAllocations` instantly schedules tens of thousands of events.
+2. `object_modified` filters reference fields via the `Current.` / `Previous.` prefixes.
+   `Operation` (matching one of `'INSERT'`, `'UPDATE'`, `'DELETE'`) is the only valid unprefixed
+   token — raw `<Field>` rejects at upsert.
+3. Filter logical operators are the keywords `AND` / `OR` only. C-style `&&` / `||` are not valid
+   EQL and reject at upsert with `Expected (OR | AND | end-of-input)` — this applies to both
+   `object_modified` and `event` filters.
+4. Event triggers select their event via `filter: "type == '<event-name>'"` — there are no
+   `eventType` / `eventSubtype` keys.
+5. `action.url` is HTTPS-only for `call_url` — `http://` rejects at upsert, with no localhost
+   exception.
+6. `previousFields` is a flat selection set (no nested objects), and both `previousFields` and
+   `query` live under `action` only — never under `trigger` (SOL-914).
+7. Deferred offsets anchored on `CreatedDate` or `LastModifiedDate` must be >= 5000ms — shorter
+   offsets race the deferred-trigger scheduler's lag and may never fire.
+8. `action.type` is immutable after create — upserting a `call_url` over an existing `send_sms`
+   (or vice versa) returns `400 "Cannot change the type of the action"`; delete and recreate to
+   switch.
+9. `{{ SKEDULO_USER_TOKEN }}` is a reserved configuration-variable name — it cannot be created as
+   a regular config var and belongs only in `action.headers` values.
+10. Configuration variables substitute only in `action.url` and `action.headers` — a
+    `{{ MY_VAR }}` inside `action.query` or a `send_sms` template leaks as literal text.
+11. `send_sms` field references must resolve on the trigger schema (verify via the GraphQL Schema
+    MCP), and every fired SMS is billed per message — cost-check high-frequency triggers.
+12. `enabled: false` deploys but never fires — deliberate for staging; an accident in production.
+13. On Skedulo for Salesforce, `schemaName` is the registered Pulse type (not the SF table name);
+    register the object and every referenced field in Pulse Web → Settings → Data management →
+    Custom fields, per environment, before deploying.
+
 ## Triggered Actions vs Webhooks (when to use which)
 
-Both are configured against the same `/triggered_actions` API surface — Webhooks are actually implemented internally as a specialised flavour of Triggered Action. Default to Triggered Actions for all event-driven work; reach for Webhooks ONLY when one of these two features is required:
-
-| Feature                                                       | Triggered Action | Webhook            |
-| ------------------------------------------------------------- | ---------------- | ------------------ |
-| Fire on object INSERT / UPDATE / DELETE                       | ✅               | ✅                 |
-| Include previous-values payload                               | ✅               | ✅                 |
-| Retrieve extra data via GraphQL query after the trigger fires | ✅               | ❌                 |
-| Send an SMS as the action                                     | ✅               | ❌                 |
-| Fire after a time offset (deferred)                           | ✅               | ✅                 |
-| Fire on **inbound SMS**                                 | ❌               | ✅ — webhook-only |
-| Fire on a **cron schedule**                             | ❌               | ✅ — webhook-only |
-
-If your use case isn't cron-based or inbound-SMS-based, it's a Triggered Action.
+Object INSERT / UPDATE / DELETE reactions are Triggered Actions (this plugin); cron schedules and
+inbound SMS are Webhooks (the `webhooks` plugin). The full decision matrix, including the
+TA-only capabilities (GraphQL query after fire, send-SMS actions), lives in
+[`references/ta-vs-webhook.md`](references/ta-vs-webhook.md).
 
 ## Authentication & Prerequisites
 
@@ -373,7 +407,7 @@ When using the CLI (`upsert`), this isn't a concern — the local state file is 
 
 #### `{{ SKEDULO_USER_TOKEN }}`
 
-A reserved header template token. When the trigger fired due to a user-initiated change, the platform substitutes the initiating user's access token at fire time. Use it only when the `call_url` target is a **trusted first-party Connected Function** that needs to act *as* the initiating user (respecting their permissions and audit identity). Do not forward it to arbitrary external services — it is a live bearer credential, and sending it off-platform is a credential-leak risk.
+A reserved header template token. When the trigger fired due to a user-initiated change, the platform substitutes the initiating user's access token at fire time. Useful when the call_url target is a Connected Function or external service that needs to act *as* the initiating user (respecting their permissions and audit identity).
 
 `SKEDULO_USER_TOKEN` is also a reserved configuration-variable name — you cannot create a config var with this name.
 
@@ -381,15 +415,10 @@ A reserved header template token. When the trigger fired due to a user-initiated
 
 Configuration variables are tenant-scoped values managed in Pulse Web → Settings → Configuration variables. Reference them with `{{ VAR_NAME }}` (note the spaces inside the braces — they ARE significant in some older clients; use spaced form to be safe).
 
-Supported locations:
-
-- ✅ `action.url`
-- ✅ `action.headers` (any header value)
-
-NOT supported:
-
-- ❌ `action.query` (GraphQL query body — config var substitution does not run here)
-- ❌ `action.template` (send_sms Mustache template — config var substitution does not run here; the `{{ X }}` syntax in templates is for EQL field interpolation, not config vars)
+Substitution runs only in `action.url` and `action.headers` (any header value). It does NOT run
+in `action.query` or the `send_sms` `action.template` — a `{{ MY_VAR }}` there leaks as literal
+text into the payload (in templates, the `{{ X }}` syntax is EQL field interpolation, not config
+vars).
 
 ### Action Type 2: `send_sms`
 
@@ -502,24 +531,6 @@ Each log entry includes the URL called, the request body, the response status + 
 
 A deferred `object_modified` Triggered Action produces **multiple log entries per fire** — typically three: one for scheduling the deferred task, one for the platform's internal `fetch_object` step, and one for the final `call_url` (or `send_sms`) action. When debugging "why didn't my deferred TA fire?", inspect ALL log entries for the TA, not just the action-stage one. Common failure mode: the scheduling stage succeeds but the field-anchor changes (e.g. `Start` is cleared on the record), causing the platform to drop the scheduled fire silently.
 
-## Pulse Rules (the critical checklist)
-
-These are the platform-enforced rules that cause `sked artifacts triggered-action upsert` to reject otherwise-valid-looking JSON, or cause silent runtime misbehaviour. The review-agent enforces all of them as Critical or High findings.
-
-1. **`filter` is MANDATORY** for Triggered Actions. (Webhooks are different — they accept missing filter — but they're a different artifact.) Empty filter strings are also rejected. **Deferred Triggered Actions REQUIRE an additionally narrow filter** — every record matching the filter at upsert time schedules a future fire (the platform pre-computes the deferred fire slot), so a broad filter against `Jobs` or `JobAllocations` instantly schedules tens of thousands of future events.
-2. **`object_modified` filter MUST reference fields via `Current.<Field>` or `Previous.<Field>`** — raw `<Field>` without a prefix is rejected. `Operation` is the only valid unprefixed token (matches one of `'INSERT'`, `'UPDATE'`, `'DELETE'`).
-3. **`action.url` must be HTTPS** for `call_url` actions. `http://` is rejected at upsert.
-4. **`previousFields` cannot contain nested objects** — flat field selection only. `{ Duration JobStatus Region { Name } }` is invalid; `Region` must come from the main `query` block, not `previousFields`. **Both `previousFields` and `query` belong under `action` only — never under `trigger`.**
-5. **INSERT has no `previous`, DELETE has no `data`** — call_url targets that assume both will misbehave. The platform auto-injects `previous.UID` on DELETE so the target can identify the deleted record.
-6. **Deferred offset >= 5000ms** when the anchor is `CreatedDate` or `LastModifiedDate`. Smaller offsets race the platform's internal change-processing lag.
-7. **`action.type` is IMMUTABLE on update**. You cannot upsert a `call_url` action over an existing `send_sms` action — the API returns 400 `"Cannot change the type of the action"`. Delete + recreate when you genuinely need to switch.
-8. **`{{ SKEDULO_USER_TOKEN }}` is a reserved configuration-variable name** — cannot be created as a regular config var. Use it only in `action.headers` values to inject the initiating user's access token.
-9. **Configuration variables only substitute in `action.url` and `action.headers` for `call_url`**. Do NOT use `{{ MY_VAR }}` inside `action.query` or `send_sms` `action.template` — the substitution doesn't run there and the literal text leaks into the payload.
-10. **Field names in `send_sms` templates must resolve on the trigger schema** (or via dotted lookup path). The review-agent verifies this against the GraphQL schema when an `--alias` is available.
-11. **`enabled: false` deploys but doesn't fire** — use deliberately for staging; don't leave production triggers disabled by accident.
-12. **Skedulo for Salesforce — `schemaName` references the registered Pulse type**, not the SF table. If you add a custom object on the SF side and want a Triggered Action to fire on it, register the object in Pulse Web → Settings → Data management → Custom fields per environment first; only then does the Pulse type name exist and become a valid `schemaName`.
-13. **Filter logical operators are the keywords `AND` / `OR` only.** C-style `&&` / `||` are NOT valid EQL and reject at upsert with `Expected (OR | AND | end-of-input)`. This applies to both `object_modified` and `event` filters.
-
 ## Common Patterns (the 5 starter templates)
 
 The plugin ships 5 starter templates under `templates/`. Scaffold any of them via `/triggered-actions:build template:<name>`:
@@ -544,7 +555,7 @@ Fire on a platform `async_task_completed` event. Variants: `bulk_user_import` �
 
 Fire on a platform `optimization` event (filter `type == 'optimization'`). Variants: optimization-result inspector → conditionally dispatch jobs, optimization metrics collector → POST to monitoring dashboard. Typical pattern is a `call_url` to a Connected Function that reads the optimization result and decides what to do next.
 
-Each template contains `<PLACEHOLDER>` strings the init-agent walks through with the user, plus inline examples in the field comments.
+Each template contains `<PLACEHOLDER>` strings the build agent walks through with the user, plus inline examples in the field comments.
 
 ## Skedulo for Salesforce note
 
@@ -556,9 +567,14 @@ On Skedulo for Salesforce projects (where Salesforce is the system of record and
 
 ## Authoring Workflow Recap
 
-1. **Init session** — `/triggered-actions:build "<requirements>"` or `/triggered-actions:build template:<name>` or `/triggered-actions:build retrieve:<Name1>,<Name2> --alias <alias>`. Init agent scaffolds `SPEC.md` + `src/triggered-actions/`, then stops.
-2. **Coding session** (new session) — `/triggered-actions:build`. Coding agent reads `SPEC.md`, generates the `.triggered-action.json` files, then auto-spawns the review agent via the SubagentStop hook.
-3. **Review** — the review agent validates filter EQL syntax, GraphQL query shape, send_sms template field references, the Pulse Rules above, and (when an `--alias` is available) cross-checks against the live tenant GraphQL schema.
-4. **Deploy** — `/triggered-actions:deploy --alias <alias>`. Explicit and non-autonomous. Per-file `sked artifacts triggered-action upsert -a <alias> -f <file>`.
+1. **Build** — `/triggered-actions:build "<requirements>"` (or `template:<name>` /
+   `retrieve:<Name1>,<Name2> --alias <alias>`). The build agent gathers requirements, verifies
+   fields via the GraphQL Schema MCP, scaffolds `SPEC.md` + `src/triggered-actions/`, implements
+   the state files, runs `scripts/validate_triggered_actions.py`, and finishes with an inline
+   review against `references/review-checklist.md`. Re-running resumes from `SPEC.md`.
+2. **Review** (optional, standalone) — `/triggered-actions:review` re-runs the validator and
+   walks the checklist over the local workspace.
+3. **Deploy** — `/triggered-actions:deploy --alias <alias>`. Explicit and non-autonomous.
+   Per-file `sked artifacts triggered-action upsert -a <alias> -f <file>`.
 
-The coding agent NEVER deploys autonomously. Deploy stays a deliberate, separate command.
+The build agent NEVER deploys. Deploy stays a deliberate, separate command.

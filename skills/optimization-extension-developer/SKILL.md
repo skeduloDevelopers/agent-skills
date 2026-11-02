@@ -1,19 +1,6 @@
 ---
 name: optimization-extension-developer
 description: This skill enables Claude to build, modify, and deploy Skedulo Optimization Extensions. Optimization Extensions add custom business logic to the Pulse Platform optimization engine, allowing filtering of jobs/resources, applying constraints, and transforming optimization data.
-displayName: Optimization Extensions
-status: available
-category: Backend
-featured: false
-pulseComponents:
-  - Optimization Extensions
-sdks:
-  - "@skedulo/sdk-utilities"
-  - "@skedulo/pulse-solution-services"
-  - "@skedulo/optimization-manager-client"
-filePatterns:
-  - "src/functions/optimization-extensions/**/*.ts"
-  - "sked.proj.json"
 ---
 
 # Skedulo Optimization Extensions Skill
@@ -28,6 +15,32 @@ Optimization Extensions are Connected Functions that hook into Skedulo's optimiz
 - Apply custom constraints to the optimization engine
 - Integrate external data sources
 - Modify optimization behavior dynamically
+
+## Goal
+
+Produce a working, tested optimization extension: a `transformSchedule` handler wired through
+`createOptimizationRoutes`, config-driven, tracked in `SPEC.md`, reviewed against
+`references/review-checklist.md`.
+
+## Guardrails
+
+Platform behaviour you can't infer from the workspace:
+
+- `transformSchedule` must return **both** `featureModel` and `productData`. Returning only the part
+  you changed drops the rest of the plan. Only the documented parts of `TransformerInput` are
+  mutable — treat `plan` and `configuration` as read-only inputs.
+- Allocation ids in the plan carry a numeric suffix (`<jobId>_0`). Strip it before matching job
+  UIDs: `allocationId.replace(/_\d+$/, '')`. Matching raw ids silently finds nothing.
+- Default execution limits per run: **50 total API calls, 5 concurrent, 12s max**. Design data access
+  around them — batch reads rather than looping one query per job.
+- Config values come from `sked.proj.json → settings.configVars` (`configType: "plain-text"`) and are
+  read through the ExecutionContext config client, never `process.env` or hardcoded literals. Load
+  them once at the top of the handler, not inside loops.
+- Build the `ExecutionContext` from the credentials on `TransformerInput`
+  (`ExecutionContext.fromCredentials({ baseUrl, accessToken }, { requestSource, userAgent })`) —
+  there is no ambient `context` in a transformer.
+- Use `Map`/`Set` for the lookups the transform does per job or per resource; the hot path runs over
+  the whole plan.
 
 ## Core Concepts
 
@@ -164,11 +177,17 @@ Create the transformation handler:
 ```typescript
 // src/handlers/transformSchedule.ts
 import { TransformerInput, TransformerOutput } from '@skedulo/optimization-manager-client';
+import { ExecutionContext } from '@skedulo/pulse-solution-services';
 
 export const transformSchedule = async (
   input: TransformerInput
 ): Promise<TransformerOutput> => {
   try {
+    const context = ExecutionContext.fromCredentials(
+      { baseUrl: input.configuration.baseUrl, accessToken: input.configuration.accessToken },
+      { requestSource: 'optimization-extension', userAgent: 'schedule-transformer' }
+    );
+
     // Load config at start (never inline or in loops)
     const configValue = await context.configVarClient.get('CONFIG_KEY');
 
@@ -227,7 +246,7 @@ In `sked.proj.json`:
   "version": "2",
   "name": "priority-filter-extension",
   "description": "Filters jobs by priority level",
-  "runtime": "nodejs22.x",
+  "runtime": "nodejs18.x",
   "settings": {
     "configVars": [
       {
@@ -253,6 +272,11 @@ In `sked.proj.json`:
 export const transformSchedule = async (
   input: TransformerInput
 ): Promise<TransformerOutput> => {
+    const context = ExecutionContext.fromCredentials(
+      { baseUrl: input.configuration.baseUrl, accessToken: input.configuration.accessToken },
+      { requestSource: 'optimization-extension', userAgent: 'schedule-transformer' }
+    );
+
   // Load all config at start
   const priorityThreshold = parseInt(
     await context.configVarClient.get('PRIORITY_THRESHOLD') || '3'
@@ -276,6 +300,11 @@ export const transformSchedule = async (
   input: TransformerInput
 ): Promise<TransformerOutput> => {
   try {
+    const context = ExecutionContext.fromCredentials(
+      { baseUrl: input.configuration.baseUrl, accessToken: input.configuration.accessToken },
+      { requestSource: 'optimization-extension', userAgent: 'schedule-transformer' }
+    );
+
     const priorityThreshold = parseInt(
       await context.configVarClient.get('PRIORITY_THRESHOLD') || '3'
     );
@@ -317,6 +346,11 @@ export const transformSchedule = async (
   input: TransformerInput
 ): Promise<TransformerOutput> => {
   try {
+    const context = ExecutionContext.fromCredentials(
+      { baseUrl: input.configuration.baseUrl, accessToken: input.configuration.accessToken },
+      { requestSource: 'optimization-extension', userAgent: 'schedule-transformer' }
+    );
+
     const requiredCertification =
       await context.configVarClient.get('REQUIRED_CERTIFICATION');
 
@@ -388,7 +422,7 @@ export const transformSchedule = async (
         operationName: 'fetchJobDetails'
       })
       .withFields(['UID', 'Name', 'Priority', 'CustomField__c'])
-      .withFilter(`UID IN ('${jobIds.join("','")}')`)
+      .withFilter(`UID IN ['${jobIds.join("','")}']`)
       .execute();
 
     // Use fetched data in transformation
@@ -445,6 +479,8 @@ const final = byStatus.filter(j => !excludedIds.has(j.id));
 ### Load Config Once
 
 ```typescript
+// `context` is the ExecutionContext built at the top of the handler (see "Implement Handler").
+
 // GOOD: Load config at start
 const threshold = await context.configVarClient.get('THRESHOLD');
 for (const job of jobs) {
@@ -509,6 +545,7 @@ export const transformSchedule = async (
 ### Validate Configuration
 
 ```typescript
+// `context` is the ExecutionContext built at the top of the handler (see "Implement Handler").
 const configValue = await context.configVarClient.get('REQUIRED_CONFIG');
 if (!configValue) {
   console.error('Missing required configuration: REQUIRED_CONFIG');
@@ -629,18 +666,10 @@ jest.mock('./config', () => ({
 - Modify `featureModel` to change how optimization RUNS
 - Modify `productData` to change what gets SAVED in results
 
-## Deployment Checklist
+## References
 
-Before deploying:
-- [ ] Handler compiles without errors
-- [ ] Unit tests passing
-- [ ] Config variables defined in sked.proj.json
-- [ ] All business logic uses config vars (no hardcoded values)
-- [ ] Efficient data structures used (Map/Set)
-- [ ] Comprehensive error handling in place
-- [ ] Both featureModel and productData returned
-- [ ] Logging added for debugging
-- [ ] Description updated in sked.proj.json
+- `references/review-checklist.md` — the review items for this plugin.
+- `skedulo-api-developer` skill — ExecutionContext, QueryBuilder, batching, execution limits.
 
 ## Resources
 

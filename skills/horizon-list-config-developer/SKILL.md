@@ -13,11 +13,27 @@ Each config consists of:
 1. **A `.horizon-list-config.json` metadata file** — declares the object, columns, and ordering.
 2. **A `source` subdirectory** — contains one Nunjucks `.njk` template file per column.
 
+## Goal
+
+Produce deploy-ready list-config artifacts: valid config JSON plus one working column template per
+column, tracked in SPEC.md, reviewed against `references/review-checklist.md`.
+
+## Guardrails
+
+Platform rules you can't discover by reading the workspace — violations fail silently or at deploy:
+
+- `ordering` must include every column `id` — a missing id silently drops that column from the page.
+- `source` must be exactly `"./<ObjectName>-DEFAULT_LIST"` and match the real subdirectory name.
+- Column templates are standalone Nunjucks files — `extends` is not supported.
+- Verify every field name and relationship path against the GraphQL Schema MCP before referencing
+  it in a template — unverified fields render empty with no error.
+- Column `file` values are case-sensitive and must match the actual `.njk` filenames.
+
 ---
 
 ## HorizonListConfig Artifact Schema
 
-**File**: `horizon-list-configs/<feature-dir>/<ObjectName>-DEFAULT_LIST.horizon-list-config.json`
+**File**: `src/horizon-list-configs/<feature-dir>/<ObjectName>-DEFAULT_LIST.horizon-list-config.json`
 
 ```json
 {
@@ -81,19 +97,21 @@ Each config consists of:
 ## File Structure
 
 ```text
-horizon-list-configs/
-└── <feature-dir>/
-    ├── <ObjectName>-DEFAULT_LIST.horizon-list-config.json
-    └── <ObjectName>-DEFAULT_LIST/
-        ├── <Column1>-template.njk
-        ├── <Column2>-template.njk
-        └── ...
+<your-project>/                # CX project root = sked package root (`sked package deploy local -p .` target)
+├── skeduloPackage.json
+└── src/horizon-list-configs/
+    └── <feature-dir>/
+        ├── <ObjectName>-DEFAULT_LIST.horizon-list-config.json
+        └── <ObjectName>-DEFAULT_LIST/
+            ├── <Column1>-template.njk
+            ├── <Column2>-template.njk
+            └── ...
 ```
 
 Example for Jobs:
 
 ```text
-horizon-list-configs/
+src/horizon-list-configs/
 └── jobs/
     ├── Jobs-DEFAULT_LIST.horizon-list-config.json
     └── Jobs-DEFAULT_LIST/
@@ -197,11 +215,13 @@ template variables.
 
 ## Deploy
 
+Run package commands from the CX project root — the directory holding `skeduloPackage.json`.
+
 ```bash
 # Upsert a single list config artifact
-sked artifacts horizon-list-config upsert -a <alias> -f horizon-list-configs/<feature-dir>/<ObjectName>-DEFAULT_LIST.horizon-list-config.json
+sked artifacts horizon-list-config upsert -a <alias> -f "src/horizon-list-configs/<feature-dir>/<ObjectName>-DEFAULT_LIST.horizon-list-config.json"
 
-# Deploy the whole package (all configs together)
+# Deploy the whole package (all configs together, from the CX project root)
 sked package deploy local -a <alias> -p .
 
 # Production: register first, then deploy
@@ -221,7 +241,6 @@ After deploy, the updated columns appear on the object's standard list page (e.g
 ## Status
 - Phase: [Planning | Implementation | Review | Complete]
 - Last Updated: <timestamp>
-- Last Agent: <agent-name>
 
 ## Configs to Build
 
@@ -235,8 +254,15 @@ After deploy, the updated columns appear on the object's standard list page (e.g
 - [x] LC1: ...
 
 ## Latest Review
-(appended by review agent)
+(filled by the review phase)
 ```
+
+---
+
+## References
+
+- `references/review-checklist.md` — the single review checklist, used by the build agent's review
+  phase and `/horizon-list-config:review`.
 
 ---
 
