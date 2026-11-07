@@ -39,7 +39,7 @@ Use this checklist to validate a completed MEX form. Go through each section and
 - [ ] `selectEditor` using Picklists has `displayExpression` set to `converters.ui.translatePicklist(valueExpression, sourceExpression)` — NOT raw `pageData.FieldName`. This ensures the displayed label matches the vocabulary label rather than the raw stored value.
 - [ ] Pages navigated to from a `list` (via `itemClickDestination`) use `pageData.FieldName` for editing, NOT `formData.Array[index]`.
 - [ ] Flat pages using `pageDataExpression` bind their editors to `pageData.FieldName`.
-- [ ] Localized keys (e.g., in `title`, `text`, `caption`, `placeholder`, `summary`) are PURE STRINGS (e.g., `"MyLabel"`) and NOT wrapped in `${...}` in `ui_def.json` and `metadata.json`.
+- [ ] Localized keys (e.g., in `title`, `text`, `caption`, `placeholder`) are PURE STRINGS (e.g., `"MyLabel"`) and NOT wrapped in `${...}` in `ui_def.json`. `summary` in `metadata.json` is plain text, not a localized key (see [Metadata & Upload](./metadata-upload.md)).
 - [ ] Localized keys correspond to entries in `mex_definition/static_resources/locales/en.json`.
 - [ ] Expressions in `showIf` and `mandatoryIf` use supported operators and follow nesting rules.
 
@@ -62,3 +62,7 @@ Skip this section if the form has no `custom_functions/` directory and all flags
 - [ ] **Cache refresh**: Save handlers call `refreshEntity` after custom inserts.
 - [ ] **Untouched scaffold files**: `index.backend.ts`, `localDevIndex.ts`, `tracing.ts`, and `graphql/__graphql/generated.ts` are not modified.
 - [ ] **Vocabulary bindings**: If `staticFetcher.ts` returns vocabulary keys, `ui_def.json` select fields reference them as `sharedData.__vocabulary.<Key>`.
+
+## 7. Runtime verification (beyond static review)
+
+A clean static review proves the JSON is well-formed — not that the form behaves correctly when it runs. Where credentials for a test tenant are available, finish by verifying the form at runtime in a browser: confirm it renders, fetches populate the data, expressions/validators resolve as intended, backend calls succeed, and a save sends the right record shape. See [Verify with LDM](./verify-with-ldm.md) for the full procedure and checklist.

@@ -13,6 +13,10 @@ A MEX project MUST follow this structure:
     - `ui_def.json`
     - `static_resources/locales/en.json`
 
+The plugin's `PostToolUse` hook (`scripts/validate_mex_form.py`) enforces the `defId`, `contextObject` and
+`contextObjectFields` rules below on every Write/Edit of these two files; an already-deployed legacy `defId`
+goes in `src/mobile-extensions/naming-exceptions.json` (`{"names": [...]}`).
+
 ---
 
 ## `upload_config.json`
