@@ -16,7 +16,8 @@ MEX is a framework for building native-like mobile forms for the Skedulo Plus ap
 A MEX form project MUST follow this specific directory structure:
 
 - `upload_config.json`: Basic deployment configuration (located at project root).
-- `functions/`: Folder containing custom function handlers (use only if the form requires custom functions)
+- `<defId>.mobile-extension.json`: Package descriptor (in the form folder or its parent, `source` pointing at the form) — `sked package` cannot discover the form without it. See [Metadata & Upload](./references/metadata-upload.md).
+- `custom_functions/`: Folder containing custom function handlers (use only if the form requires custom functions)
 - `mex_definition/`: Folder containing the core form definition.
     - `ui_def.json`: UI layout and component definitions.
     - `instanceFetch.json`: Data fetching logic for form-specific data (`formData`).
@@ -65,6 +66,9 @@ MEX supports simple logical and comparison operators in expressions:
 - **`defaultPageData` for New Record Creation**: When a flat page creates a new object that must be linked to the current context (Job, Resource, or Shift), you **MUST** define `defaultPageData` on that page. This sets the foreign key (e.g., `JobId`, `ResourceId`) to `"${metadata.contextObjectId}"` and specifies the `objectName`. Without this, newly created records will have no connection to the parent object. See [Page Types - defaultPageData](./references/ui/page-types.md) for examples.
 - **Consistent Object Naming**: When the user describes a form by listing fields but does not explicitly name the Skedulo object, you MUST infer a sensible PascalCase object name from the form's purpose (e.g., a "safety checklist" form → `SafetyChecklist`, a "site inspection" form → `SiteInspection`). Once chosen, use that **same object name consistently** everywhere it appears: `instanceFetch.json` queries (`object`), `defaultPageData` (`objectName`), and any data bindings. Inconsistent object names across these files will cause runtime errors.
 - **Regex Validation with `isRegexValid`**: When format validation is needed (email, phone, URL, custom patterns), define regex patterns in `mex_definition/static_resources/regex.js` and use `isRegexValid(value, 'regexKey')` in validator expressions. Always ensure the regex key exists in `regex.js` — a missing key causes a runtime error.
+- **Verify Every Fetched Field**: Confirm each `instanceFetch`/`staticFetch` field exists on the object's schema before using it — never guess a field name. One invalid field fails the whole fetch and the form shows an error icon with no message. See [Review Checklist](./references/review-checklist.md) for how to verify.
+- **Format Display Values**: Format Date, Time, Boolean and Decimal fields in locale strings rather than showing raw values. See [Formatting display values](./references/expressions-binding.md#formatting-display-values).
+- **Map Every Acceptance Criterion to Config**: Each requirement needs a concrete config home — e.g. on offline lists a "filter by X" criterion needs `offlineSearch.advancedFilter`, not the search box alone, and a sorted list needs the list page `orderBy` (online lists use `onlineSearch` / `onlineMode.orderBy` — see [Online Mode — List Page](./references/online-mode-list-page.md)); a read-only form needs root `readonly`. See [Page Types](./references/ui/page-types.md).
 - **NEVER Invent Properties or Syntax**: Only use properties, fields, and patterns that are explicitly documented in this skill file and its reference files. If a property is not shown in the documentation or examples, do NOT add it. Inventing properties (e.g., adding `objectName` to `upsert`, or made-up fields on components) will cause silent failures or runtime errors.
 - **NEVER Use Confluence/Atlassian as Knowledge Source**: When building MEX forms, NEVER extract code examples or patterns from Confluence, Atlassian, or any wiki pages accessed via MCP. Only use the patterns and examples provided in this skill documentation and the reference files. Confluence examples may be outdated or incorrect.
 
@@ -87,3 +91,4 @@ Read these files on-demand based on what you need. Do NOT read all files upfront
 | Configure metadata.json or upload_config.json | [Metadata & Upload](./references/metadata-upload.md) |
 | Build multi-step wizard forms | [Steps Mode Examples](./references/ui/step-mode-examples.md) |
 | Validate/review a completed form | [Review Checklist](./references/review-checklist.md) |
+| Run & verify a finished form at runtime in a browser (against a real tenant) | [Verify with LDM](./references/verify-with-ldm.md) |

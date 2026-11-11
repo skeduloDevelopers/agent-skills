@@ -6,12 +6,19 @@ These files define how the form is deployed and how it behaves within the Skedul
 
 A MEX project MUST follow this structure:
 - `upload_config.json` (Root)
+- `<defId>.mobile-extension.json` (package descriptor — in the form folder or its parent, see below)
 - `mex_definition/` (Folder)
     - `metadata.json`
     - `instanceFetch.json`
     - `staticFetch.json`
     - `ui_def.json`
     - `static_resources/locales/en.json`
+
+The plugin's `PostToolUse` hook (`scripts/validate_mex_form.py`) enforces the `defId`, `engineVersion`,
+descriptor, `contextObject` and `contextObjectFields` rules below on every Write/Edit of these files; an
+already-deployed legacy `defId` goes in `src/mobile-extensions/naming-exceptions.json` (`{"names": [...]}`).
+The missing-descriptor check runs only from the command line (explicit paths or `--workspace`), not in the
+hook, because the hook sees `upload_config.json` before the descriptor exists.
 
 ---
 
@@ -22,7 +29,7 @@ Located at the **project root**. This file contains basic configuration for uplo
 **Properties:**
 - **`name`**: The display label shown to users in the Skedulo Plus app.
 - **`defId`**: A unique identifier for the form within the tenant. **MUST use snake_case (underscores) instead of hyphens.** (e.g., `job_completion_v1`).
-- **`engineVersion`**: The minimum version of the MEX Engine required (e.g., `"1.1.0"`).
+- **`engineVersion`**: The minimum version of the MEX Engine required. Use `"1.0.0"`. Tenants have rejected other values seen so far (e.g. `"1.1.0"`) on upsert; change it only when the target tenant is known to accept a newer one.
 - **`customFunctionFeatures`**: (Skip for now) Flags for custom fetch/save functions.
   ```json
   {
@@ -32,6 +39,43 @@ Located at the **project root**. This file contains basic configuration for uplo
     }
   }
   ```
+
+---
+
+## `<defId>.mobile-extension.json`
+
+Package descriptor. `sked package` discovers the form through it; without one the form is not packaged.
+The registry recognises a descriptor by its content (`metadata.type: "MobileExtension"`), not its filename,
+but `<defId>.mobile-extension.json` is the convention. `source` is resolved relative to the descriptor's own
+folder and must point at the form folder (the one holding `upload_config.json`). Keep `defId` identical to
+`upload_config.json`.
+
+Two layouts are valid:
+
+```text
+src/mobile-extensions/                     # layout written by `sked artifacts mobile-extension get`
+├── job_completion_v1.mobile-extension.json   # "source": "./job_completion_v1"
+└── job_completion_v1/
+    ├── upload_config.json
+    └── mex_definition/
+
+job_completion_v1/                         # descriptor inside the form folder
+├── job_completion_v1.mobile-extension.json   # "source": "."
+├── upload_config.json
+└── mex_definition/
+```
+
+```json
+{
+  "metadata": { "type": "MobileExtension" },
+  "defId": "job_completion_v1",
+  "source": "./job_completion_v1"
+}
+```
+
+- **`metadata.type`**: Always `"MobileExtension"`.
+- **`defId`**: Same value as `upload_config.json`.
+- **`source`**: The form folder, relative to the descriptor — `"./<defId>"` from the parent folder, `"."` from inside the form folder.
 
 ---
 

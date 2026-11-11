@@ -78,6 +78,8 @@ Injected into custom functions as the second argument: `(args, { dataContext, ex
 | `dateTimeFormat` | `(value, timezoneType?)` | `Promise<string>` | Async wrapper — use `dateTimeFormatV2` for sync. |
 | `dateTimeFormatV2` | `(value, timezoneType?, dateFormatStr?, timeFormatStr?)` | `string` | Sync datetime formatting. |
 
+This table covers `converters.date.*` inside custom functions. The bare `dateFormat` / `timeFormat` / `dateTimeFormat` in locale strings and expressions map to the V2 converters and do accept a format string — see [Formatting display values](../expressions-binding.md#formatting-display-values).
+
 
 **Example:**
 ```typescript

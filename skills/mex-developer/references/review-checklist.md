@@ -2,11 +2,29 @@
 
 Use this checklist to validate a completed MEX form. Go through each section and verify all items.
 
+Mechanical rules — `defId` snake_case, `engineVersion`, the package descriptor (present in the form folder
+or its parent, `metadata.type: "MobileExtension"`, `source` resolving to the form, `defId` matching
+`upload_config.json`), `contextObject`, `contextObjectFields` — are enforced by
+`scripts/validate_mex_form.py`. Run it first and treat a non-zero exit as a failure:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate_mex_form.py" [form-id]/upload_config.json [form-id]/mex_definition/metadata.json
+```
+
+It finds the descriptor itself from `upload_config.json`; add the descriptor's exact path to the command to
+validate its fields too.
+
+Forms under `src/mobile-extensions/` can use `--workspace .` from the repo root instead. A `WARN` on
+`engineVersion` means anything other than `"1.0.0"` — keep `"1.0.0"` unless the target tenant is known to
+accept the newer value ([Metadata & Upload](./metadata-upload.md)).
+
 ## 1. Structure & Schema
 
 - [ ] Folder `mex_definition/` exists.
 - [ ] Files `upload_config.json` (at root), `mex_definition/ui_def.json`, `mex_definition/instanceFetch.json`, `mex_definition/static_resources/locales/en.json`, `mex_definition/staticFetch.json`, `mex_definition/metadata.json` exist and are valid JSON.
 - [ ] `upload_config.json` has `name`, `defId`, and `engineVersion`.
+- [ ] A `<defId>.mobile-extension.json` descriptor's `source` points at this form folder (validator).
+- [ ] Read-only forms (no create/edit requirement) set root `"readonly": true` in `ui_def.json` so Save is hidden ([Page Types](./ui/page-types.md)).
 - [ ] `mex_definition/metadata.json` has `summary`, `email`, and `contextObject`.
 - [ ] `contextObjectFields` in `metadata.json` is only defined when it has at least one entry.
 
@@ -20,6 +38,7 @@ Use this checklist to validate a completed MEX form. Go through each section and
 - [ ] Queries use `"limit"` (NOT `"take"`) for record limiting.
 - [ ] Queries fetching a single record use `"limit": 1` to return an object (not an array).
 - [ ] Dot notation is used correctly for relationship fields.
+- [ ] **CRITICAL**: Every field in `instanceFetch.json` / `staticFetch.json` (including each segment of a dotted path) was confirmed against the schema — graphql-schema MCP `introspect_type`, or when the MCP is unavailable, a `__type` introspection via `sked http /graphql/graphql`. No guessed names (e.g. Contacts has `FullName`, not `Name`). One bad field fails the whole fetch.
 
 ## 3. UI Definition
 
@@ -31,6 +50,8 @@ Use this checklist to validate a completed MEX form. Go through each section and
 - [ ] View Components are correctly nested.
 - [ ] Required properties for components (e.g., `type`, `title`, `valueExpression`) are present.
 - [ ] Navigation properties (e.g., `itemClickDestination`) use valid page names from the `pages` map.
+- [ ] Every acceptance criterion in `SPEC.md` maps to concrete config. On an offline list, a "filter by X" criterion has `search.offlineSearch.advancedFilter` (inside `offlineSearch`, not beside it) — search alone does not satisfy it.
+- [ ] Offline lists with a required order use the list page `orderBy.expression` (`"<field> asc|desc"`), not only a query-level `orderBy`. (Online lists use `onlineSearch` / `onlineMode.orderBy` — see [Online Mode — List Page](./online-mode-list-page.md).)
 
 ## 4. Data Binding & Expressions
 
@@ -39,8 +60,10 @@ Use this checklist to validate a completed MEX form. Go through each section and
 - [ ] `selectEditor` using Picklists has `displayExpression` set to `converters.ui.translatePicklist(valueExpression, sourceExpression)` — NOT raw `pageData.FieldName`. This ensures the displayed label matches the vocabulary label rather than the raw stored value.
 - [ ] Pages navigated to from a `list` (via `itemClickDestination`) use `pageData.FieldName` for editing, NOT `formData.Array[index]`.
 - [ ] Flat pages using `pageDataExpression` bind their editors to `pageData.FieldName`.
-- [ ] Localized keys (e.g., in `title`, `text`, `caption`, `placeholder`, `summary`) are PURE STRINGS (e.g., `"MyLabel"`) and NOT wrapped in `${...}` in `ui_def.json` and `metadata.json`.
+- [ ] Localized keys (e.g., in `title`, `text`, `caption`, `placeholder`) are PURE STRINGS (e.g., `"MyLabel"`) and NOT wrapped in `${...}` in `ui_def.json`. `summary` in `metadata.json` is plain text, not a localized key (see [Metadata & Upload](./metadata-upload.md)).
 - [ ] Localized keys correspond to entries in `mex_definition/static_resources/locales/en.json`.
+- [ ] No Date, Time, Boolean or Decimal value is rendered raw in a locale string — each is formatted per [Formatting display values](./expressions-binding.md#formatting-display-values).
+- [ ] Any test of display text renders the expression and asserts on the result, not on the `${...}` template string.
 - [ ] Expressions in `showIf` and `mandatoryIf` use supported operators and follow nesting rules.
 
 ## 5. Consistency
@@ -62,3 +85,7 @@ Skip this section if the form has no `custom_functions/` directory and all flags
 - [ ] **Cache refresh**: Save handlers call `refreshEntity` after custom inserts.
 - [ ] **Untouched scaffold files**: `index.backend.ts`, `localDevIndex.ts`, `tracing.ts`, and `graphql/__graphql/generated.ts` are not modified.
 - [ ] **Vocabulary bindings**: If `staticFetcher.ts` returns vocabulary keys, `ui_def.json` select fields reference them as `sharedData.__vocabulary.<Key>`.
+
+## 7. Runtime verification (beyond static review)
+
+A clean static review proves the JSON is well-formed — not that the form behaves correctly when it runs. Where credentials for a test tenant are available, finish by verifying the form at runtime in a browser: confirm it renders, fetches populate the data, expressions/validators resolve as intended, backend calls succeed, and a save sends the right record shape. See [Verify with LDM](./verify-with-ldm.md) for the full procedure and checklist.

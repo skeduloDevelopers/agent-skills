@@ -379,5 +379,5 @@ const result = await jobTemplateService.generateJobByTemplate(
 
 ## See Also
 
-- `@cx` shared library pattern: [../../../connected-function-developer/references/cx-library.md](../../../connected-function-developer/references/cx-library.md)
+- `@cx` shared library pattern: load the `connected-function:connected-function-cx-library` skill (reference at [../../connected-function-cx-library/references/cx-library.md](../../connected-function-cx-library/references/cx-library.md))
 - `@skedulo/pulse-solution-services` (higher-level `ExecutionContext`, `QueryBuilder`, batch processing): the main `skedulo-api-developer` SKILL.md
