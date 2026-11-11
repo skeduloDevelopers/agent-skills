@@ -20,7 +20,7 @@ Expressions allow you to access dynamic data, perform calculations, and control 
 MEX supports a limited set of operators. **Do not use unsupported operators or deeply nested groupings.**
 
 - **Comparison**: `==` (Equals), `!=` (Not Equals), `>` (Greater), `>=` (Greater/Equals), `<` (Less), `<=` (Less/Equals)
-- **Logical**: `&&` (AND), `||` (OR)
+- **Logical**: `&&` (AND), `||` (OR), `!` (NOT)
 - **Grouping**: `(...)` (Maximum 1 nested level recommended)
 
 ## Data Binding Contexts
@@ -42,7 +42,7 @@ Accessed via `sharedData.QueryResultKey.FieldName`.
 ### `item`
 - Used ONLY in `en.json` to refer to the current item being rendered in a `list` page's `itemLayout` or a `selectEditor` selection page.
 - **For Object lists**: Use `${item.FieldName}`.
-- **For Picklists/Vocabulary**: Use `${item}` (since it's a list of strings).
+- **For Picklists/Vocabulary** (`sharedData.__vocabulary.X`): entries are `{ Label, Value }` objects, so use `${item.Label}`.
 - Example in `en.json`: `"ItemName": "${item.Name}"`
 
 ### `pageData`
@@ -80,6 +80,28 @@ Translates a picklist stored value to its display label. Use this in `displayExp
 
 ### `converters.data.escapeGraphQLVariables(value)`
 Escapes special characters in a string for safe embedding in GraphQL filter expressions. Used in `onlineMode` filter strings.
+
+## Formatting display values
+
+Date, Time, Boolean and Decimal fields render raw in locale strings (`1980-05-12`, `09:00:00.000`, `true`, `1250.5`). Format them in `en.json`.
+
+Each `${...}` in a locale string is evaluated as a JavaScript expression, so ternaries and `Number(...)` work. The parser ends the expression at the first `}`, so never put a `}` inside one.
+
+In locale strings and expressions, `dateFormat`, `timeFormat` and `dateTimeFormat` are shortcuts to the synchronous converters and take a format string:
+- `dateFormat(value, timezoneType, 'YEAR|MONTH|DAY')` — options `YEAR`, `MONTH`, `DAY`, `WEEKDAY`.
+- `timeFormat(value, timezoneType, 'HOUR|MINUTE')` — options `HOUR`, `MINUTE`, `SEC`, `TIMEZONE`.
+- `timezoneType`: use `'none'` for date-only and time-only fields. Do not invent other values.
+
+Recipes (each guards against null):
+```json
+{
+  "DueDateText": "${pageData.DueDate ? dateFormat(pageData.DueDate, 'none', 'YEAR|MONTH|DAY') : ''}",
+  "ArrivalTimeText": "${pageData.ArrivalTime ? timeFormat(pageData.ArrivalTime, 'none', 'HOUR|MINUTE') : ''}",
+  "IsUrgentText": "${pageData.IsUrgent == null ? '' : (pageData.IsUrgent ? 'Yes' : 'No')}",
+  "UnitPriceText": "${pageData.UnitPrice != null ? '$' + Number(pageData.UnitPrice).toFixed(2) : ''}"
+}
+```
+In a list `itemLayout` string, use `item.` in place of `pageData.`. These shortcuts differ from `converters.date.*` inside custom functions (see [Frontend helpers](./custom-function/cf-frontend-helpers.md#convertersdate)).
 
 ## Binding Examples
 

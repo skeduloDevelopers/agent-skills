@@ -47,7 +47,7 @@ MEX does not use standard GraphQL strings but a JSON-based representation.
 - **`fields`**: (Required) An array of field names. Supports dot notation for child objects (e.g., `Product.Name`).
 - **`filter`**: (Optional) A string representing the query filter. **CRITICAL**: Use `${varName}` syntax (NOT `{{varName}}`).
 - **`variables`**: (Required if filter uses variables) A map of variable names used in the filter to their source values. **NEVER omit this block if your filter references variables.**
-- **`orderBy`**: (Optional) Sort order (e.g., `Name ASC`, `CreatedDate DESC`).
+- **`orderBy`**: (Optional) Sort order of the fetch (e.g., `Name ASC`, `CreatedDate DESC`). It does **not** set the display order of an offline `list` page — sort that with the list page's own `orderBy.expression` (see [Page Types — list](./ui/page-types.md#list)).
 - **`limit`**: (Optional) Maximum number of records to return. **Special behavior**: `"limit": 1` returns a single object (not an array), allowing direct field access like `formData.QueryKey.FieldName` instead of `formData.QueryKey[0].FieldName`.
 
 ## Special Variables
