@@ -1,0 +1,25 @@
+{
+  "metadata": {
+    "type": "CustomField"
+  },
+  "objectName": "DemoObjects",
+  "name": "DueDate",
+  "field": {
+    "type": "Date",
+    "description": "",
+    "display": {
+      "label": "Due Date",
+      "order": 0,
+      "isAlert": false,
+      "showIf": null,
+      "showOnDesktop": true,
+      "showOnMobile": false,
+      "editableOnMobile": false,
+      "requiredOnMobile": false
+    },
+    "constraints": {
+      "required": false,
+      "accessMode": "ReadWrite"
+    }
+  }
+}

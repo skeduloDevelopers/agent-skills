@@ -12,7 +12,7 @@ Build, modify, and validate Mobile Extensions (MEX) for the Skedulo Plus app —
 
 ## Key rules
 
-- Follow the required project structure (`upload_config.json`, `mex_definition/`, optional `functions/`)
+- Follow the required project structure (`upload_config.json`, `<defId>.mobile-extension.json`, `mex_definition/`, optional `functions/`)
 - All user-facing text uses localized keys from `en.json` — pure strings, no `${...}` wrapping
 - `mandatory` is UI-only (asterisk) — pair it with a `validator` to actually enforce
 - Data contexts: `formData` (instanceFetch), `sharedData` (staticFetch), `pageData` (selected list item)

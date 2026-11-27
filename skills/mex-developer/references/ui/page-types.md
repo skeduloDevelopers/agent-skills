@@ -19,6 +19,7 @@ The root of the `ui_def.json` file defines the entry point and the collection of
 
 - `firstPage`: String name of the initial page.
 - `pages`: Object map where keys are page names and values are Page Type definitions.
+- `readonly`: (Optional) `true` makes the whole form read-only and hides the Save button. Set it on any form that only displays data.
 
 **IMPORTANT: Localization**
 All fields that take a `title`, `caption`, `placeholder`, `text`, `emptyText`, `stepItemText`, or `errorMessage` MUST use localized string keys (e.g., `"MyLabelKey"`). The actual content is stored in `mex_definition/static_resources/locales/en.json`. **Do not wrap keys in `${...}` in `ui_def.json`.**
@@ -281,9 +282,16 @@ Used to render a collection of items from a data source. It uses a single layout
     - `destinationPage`: Page to navigate to when the user taps the add button.
     - `defaultData`: Default data for the new object, passed as `pageData` to the destination page. Must include `data` (object with default field values) and `objectName` (the object type name). A temporary UID is automatically assigned.
     - `showIfExpression`: (Optional) Expression that controls visibility of the add button. If the expression evaluates to false, the add button is hidden.
+- `orderBy`: (Optional) Display order of an offline list: `{ "expression": ["<field path> asc|desc", ...] }`. Each entry is exactly two space-separated tokens (e.g. `"Resource.Name asc"`); any other token count throws "Invalid format for orderBy". Write the direction in lowercase — an uppercase `DESC` does not throw but silently sorts ascending. This is the only thing that sorts an offline list — the query-level `orderBy` in a fetch file does not (see [Data Fetching](../data-fetching.md)).
 - `search`: (Optional) Enables client-side search filtering on the list. Properties are nested inside `offlineSearch`.
     - `offlineSearch.placeholder`: Localized key for the search bar placeholder text.
     - `offlineSearch.filterOnProperties`: Array of property paths to filter on (dot notation supported for relationship fields, e.g., `"Resource.Name"`).
+    - `offlineSearch.advancedFilter`: (Optional) A filter screen with its own editors. Free-text search alone does not satisfy a "filter by X" requirement.
+        - `ui.items`: Flat-page editor components bound to `filter.<Field>` (the `filter` data context holds the chosen values).
+        - `expression`: Boolean evaluated per row, using `item` and `filter` (e.g. `"!filter.Status || item.Status == filter.Status"`).
+        - `defaultData`: (Optional) Initial `filter` values.
+        - `events.afterFilterSubmit`: (Optional) Expression run after the user applies the filter.
+    - **GOTCHA**: when `offlineSearch` is present, a sibling `search.advancedFilter` or `search.placeholder` is ignored. Put `advancedFilter` **inside** `offlineSearch`.
 
 #### Example
 ```json
@@ -319,3 +327,59 @@ Used to render a collection of items from a data source. It uses a single layout
 }
 ```
 *(In en.json: `"PartNameKey": "${item.Name}", "PartQtyKey": "Quantity: ${item.Quantity}"`)*
+
+#### Example (sorted, with search and filter)
+A read-only list of the job's allocations, sorted by start time, searchable, and filterable by status:
+```json
+{
+  "readonly": true,
+  "firstPage": "AllocationsListPage",
+  "pages": {
+    "AllocationsListPage": {
+      "type": "list",
+      "title": "AllocationsTitle",
+      "sourceExpression": "formData.Allocations",
+      "itemLayout": {
+        "type": "titleAndCaption",
+        "title": "AllocationItemTitle",
+        "caption": "AllocationItemCaption"
+      },
+      "orderBy": { "expression": ["Start asc"] },
+      "itemClickDestination": "AllocationDetailsPage",
+      "emptyText": "NoAllocationsFound",
+      "search": {
+        "offlineSearch": {
+          "placeholder": "AllocationSearchPlaceholder",
+          "filterOnProperties": ["Resource.Name", "Status"],
+          "advancedFilter": {
+            "ui": {
+              "items": [
+                {
+                  "type": "selectEditor",
+                  "title": "StatusFilterLabel",
+                  "placeholder": "StatusFilterPlaceholder",
+                  "sourceExpression": "sharedData.__vocabulary.StatusVocab",
+                  "valueExpression": "filter.Status",
+                  "displayExpression": "converters.ui.translatePicklist(filter.Status, sharedData.__vocabulary.StatusVocab)",
+                  "selectPage": { "title": "StatusFilterLabel", "itemTitle": "StatusFilterItem" }
+                }
+              ]
+            },
+            "expression": "!filter.Status || item.Status == filter.Status",
+            "defaultData": {}
+          }
+        }
+      }
+    },
+    "AllocationDetailsPage": {
+      "type": "flat",
+      "title": "AllocationDetailsTitle",
+      "items": [
+        { "type": "readonlyTextView", "title": "ResourceLabel", "text": "AllocationResourceText" },
+        { "type": "readonlyTextView", "title": "StatusLabel", "text": "AllocationStatusText" }
+      ]
+    }
+  }
+}
+```
+*(`staticFetch.json`: `"__vocabulary": { "StatusVocab": "JobAllocations:Status" }`. In en.json: `"StatusFilterItem": "${item.Label}"`, `"AllocationItemTitle": "${item.Resource.Name}"`, `"AllocationResourceText": "${pageData.Resource.Name}"`, `"AllocationStatusText": "${pageData.Status}"`. Format the start time in the caption — see [Formatting display values](../expressions-binding.md#formatting-display-values).)*

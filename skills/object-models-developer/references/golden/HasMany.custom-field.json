@@ -1,0 +1,25 @@
+{
+  "metadata": {
+    "type": "CustomField"
+  },
+  "objectName": "DemoObjects",
+  "name": "Notes",
+  "field": {
+    "type": "HasMany",
+    "description": "",
+    "display": {
+      "label": "Note",
+      "order": 0,
+      "isAlert": false,
+      "showIf": null,
+      "showOnDesktop": true,
+      "showOnMobile": false,
+      "editableOnMobile": false,
+      "requiredOnMobile": false
+    },
+    "relationship": {
+      "targetObjectName": "DemoObjectNotes",
+      "targetObjectIdFieldName": "DemoObjectId"
+    }
+  }
+}

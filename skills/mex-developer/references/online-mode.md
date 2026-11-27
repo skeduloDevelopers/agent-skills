@@ -54,9 +54,25 @@ With both set:
 ## Hard rules
 
 1. **Do NOT touch `instanceFetch.json` for CRUD-relevant data.** In online mode, CRUD goes through the queries declared in `ui_def.json` — see `online-mode-queries.md`. If you also put the same data in `instanceFetch.json`, you'll get unexpected behaviour from the two pipelines fighting each other. Empty or near-empty `instanceFetch.json` is the right shape for online forms.
-2. **Do NOT mix offline and online in one form.** A form is either fully online (`fullOnlineMode: true` + `isRequiredOnline: true`) or fully offline. There is no "online for some pages, offline for others".
+2. **Do NOT mix offline and online in one form.** A form is either fully online (`fullOnlineMode: true` + `isRequiredOnline: true`) or fully offline. There is no "online for some pages, offline for others". An offline form must not use any [online-only surface](#online-only-surfaces-throw-in-an-offline-form); its pickers use `onlineSource` for server-side search.
 3. **Both settings together.** Setting only one is misconfiguration. `fullOnlineMode: true` without `isRequiredOnline: true` will let users open the form offline and the queries will fail. `isRequiredOnline: true` without `fullOnlineMode: true` blocks offline open but doesn't enable the online pipeline.
 4. **Online queries are versioned features.** Verify your platform release supports the query types and properties you use. When in doubt, prototype on a test tenant first.
+
+## Online-only surfaces (throw in an offline form)
+
+In a form without `settings.fullOnlineMode: true`, these throw "Full online mode has to be enabled" at runtime:
+
+- List page `onlineMode` source.
+- Object `pageDataExpression` (`{ "requests": [...] }`).
+- `upsert.onlineMode` / `delete.onlineMode`.
+- `asyncExpression` validators.
+- Custom button behavior (`"type": "custom"`) with a `query`.
+
+The reverse also throws: a string `pageDataExpression` (e.g. `"formData.Job"`) in an online form fails with "Only available for offline".
+
+Pickers: an offline form that needs server-side search uses `onlineSource` with `selectPage.searchBar` ([Editor Components](./ui/editor-components.md#online-search-in-an-offline-form-onlinesource)). `selectEditor.onlineMode` / `multiSelectEditor.onlineMode` belong to Online Only Mode forms; the engine has no guard on them, but they failed on device in an offline form.
+
+`scripts/validate_mex_form.py` flags the offline cases (except a string `pageDataExpression` in an online form) when run on `mex_definition/ui_def.json`.
 
 ## What changes vs. offline mode
 

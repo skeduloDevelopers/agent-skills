@@ -1,0 +1,26 @@
+{
+  "metadata": {
+    "type": "CustomField"
+  },
+  "objectName": "DemoObjects",
+  "name": "Comments",
+  "field": {
+    "type": "TextArea",
+    "description": "",
+    "display": {
+      "label": "Comments",
+      "order": 0,
+      "isAlert": false,
+      "showIf": null,
+      "showOnDesktop": true,
+      "showOnMobile": false,
+      "editableOnMobile": false,
+      "requiredOnMobile": false
+    },
+    "constraints": {
+      "required": false,
+      "accessMode": "ReadWrite",
+      "maxLength": 4000
+    }
+  }
+}

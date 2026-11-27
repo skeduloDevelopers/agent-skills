@@ -2,7 +2,9 @@
 
 > Quick-lookup catalog of the 13 authorable Skedulo Pulse field types, plus 2 read-only-from-platform types (`Geolocation` and `StandardPicklist`) that you may encounter when retrieving a standard-object field. Use this BEFORE writing any custom-field state file — picking the wrong type forces a delete + re-create later (you cannot change `field.type` in-place).
 >
-> For the full canonical field-type semantics, consult `object-reference/01-object-reference-guide.md` in the `skedulo-platform` skill.
+> For the full canonical field-type semantics, consult `api-references/objects/01-object-reference-guide.md` in the `skedulo-platform` skill.
+>
+> **Authoring a field?** Copy the type's golden from [`golden/`](golden/) (each section below names it) and change names and values, keeping every key it carries. Add a key the golden lacks only when a rule needs it — e.g. `constraints.defaults` for a `required` non-Lookup field. The goldens are `sked artifacts custom-field get` output, so they carry every key the platform returns; the validator errors on any key a file leaves out.
 
 ## Table of contents
 
@@ -46,7 +48,7 @@
 | String / TextArea / URL | `String` | yes |
 | Int | `Int` | yes |
 | Decimal | `BigDecimal` | yes |
-| Boolean | `Boolean!` (always present) | no — defaults to `false` or `defaults.defaultValue` |
+| Boolean | `Boolean!` (always present) | no — `defaults.defaultValue` must be set explicitly (required by sked CLI) |
 | Date | `LocalDate` | yes |
 | Datetime | `Instant` | yes |
 | Time | `LocalTime` | yes |
@@ -72,16 +74,18 @@
 
 **Wire type.** `String` (nullable when not required).
 
+**Golden.** [`golden/String.custom-field.json`](golden/String.custom-field.json)
+
 **Key constraints.**
 
-- `maxLength` — default 255, raise as needed.
+- `maxLength` — always set it explicitly; omitted, the platform defaults to 255. Raise as needed.
 - `unique` — MUST be present as a boolean. Set `false` for a normal String; set `true` to enable GraphQL `upsert` mutations on this field as the external key (common for `ExternalId` and integration keys). Omitting it is rejected by Pulse: `field.constraints.unique must be a boolean value`.
 - `defaults.defaultValue` — initial string when row is inserted without a value. **A `required` String MUST set this to a non-empty string** (e.g. `"Untitled"`) — `""` does not satisfy `required` and a required field with no default is rejected at upsert.
 
 **Gotchas.**
 
 - Default `maxLength: 255` is silently truncating-friendly — exceeding it raises an error at write, not a warning. Always set `maxLength` explicitly when you know your data exceeds 255.
-- `unique: true` cannot be retrofitted onto a field that already has duplicate values in the tenant. Add it from day one, or clean data first.
+- `unique` is read-only once deployed, like every constraint — pick it from day one. Enabling it later means delete + re-create (losing data), and the re-created field still rejects duplicate values.
 
 ---
 
@@ -98,10 +102,12 @@
 
 **Wire type.** `String` (same as `String` field — the distinction is platform-side: `TextArea` allows the longer cap and the multi-line editor on Platform Pages).
 
+**Golden.** [`golden/TextArea.custom-field.json`](golden/TextArea.custom-field.json) — its `maxLength: 4000` is an example value; size it to the data.
+
 **Key constraints.**
 
-- `maxLength` — default 32,000 per the platform-API default; hard cap is 131,072. Always set explicitly.
-- `unique: true` — **rejected by Pulse** on `TextArea`. If you need uniqueness on the text value, use `String` (raise `maxLength` to ~1000 if needed) — uniqueness is supported on `String` but not on `TextArea`.
+- `maxLength` — **always set it explicitly.** Omitted, the platform defaults to **255** — the same as `String` — so a notes field silently caps at 255 characters. The hard cap is 131,072. `maxLength` is read-only once deployed (raising it later is rejected), so size it for the data up front.
+- `unique` — not supported on `TextArea`. Pulse accepts a `unique` key but drops it (a retrieved file has no `unique`), so the field is never unique; the validator rejects `unique: true` so that can't pass unnoticed. If you need uniqueness on the text value, use `String` (raise `maxLength` to ~1000 if needed).
 
 **Relates to.** Pairs with `String` — the distinction is editor experience (single-line vs textarea) on auto-generated Platform Pages, not the wire shape.
 
@@ -117,9 +123,12 @@
 
 **Wire type.** `String` (same as `String` field — validation is platform-side at write time).
 
+**Golden.** [`golden/URL.custom-field.json`](golden/URL.custom-field.json)
+
 **Key constraints.**
 
-- Same as `String`: `maxLength`, `unique`, `defaults`.
+- Same as `String`: `maxLength` (always set it; omitted, defaults to 255), `unique`, `defaults`.
+- `unique` — MUST be present as a boolean, as on `String` (`field.constraints.unique must be a boolean value`). `false` for a normal link; `true` is valid and round-trips.
 
 **Gotchas.**
 
@@ -140,6 +149,8 @@
 **When NOT to use.** Currency, percentages, weights, anything with a fractional component → use `Decimal`. Phone numbers, postcodes, SSN-like strings → use `String` (leading zeros matter; range queries don't).
 
 **Wire type.** `Int` (nullable when not required).
+
+**Golden.** [`golden/Int.custom-field.json`](golden/Int.custom-field.json)
 
 **Key constraints.**
 
@@ -162,6 +173,8 @@
 **When NOT to use.** Whole-number counts → use `Int` (cheaper, simpler). Floating-point science data where precision-vs-recall trade-offs matter → out of scope; consider a wire-formatted `String`.
 
 **Wire type.** `BigDecimal` (nullable when not required).
+
+**Golden.** [`golden/Decimal.custom-field.json`](golden/Decimal.custom-field.json)
 
 **Key constraints.**
 
@@ -189,14 +202,17 @@
 
 **Wire type.** `Boolean!` (always non-null).
 
+**Golden.** [`golden/Boolean.custom-field.json`](golden/Boolean.custom-field.json)
+
 **Key constraints.**
 
-- `required` is moot — Boolean is always present.
-- `defaults.defaultValue` — must be `true` or `false`. Defaults to `false` if omitted.
+- `required` — conventionally `true` (the field is always present on the wire anyway). Set `false` only when you have a specific reason.
+- `defaults.defaultValue` **must be explicitly set** to `true` or `false` — the sked CLI rejects Boolean fields without a `defaultValue` (`"Boolean field must have a default value"`). Do not rely on any implicit default.
 
 **Gotchas.**
 
 - `null` Boolean is not a thing on Pulse. If you need to model "not yet decided," use a Picklist with an explicit `Pending` value.
+- Omitting `defaultValue` will cause a sked CLI deploy error even though the platform schema treats Boolean as always-present.
 
 ---
 
@@ -212,6 +228,8 @@
 **When NOT to use.** Timestamps → use `Datetime`. Time-of-day (without a date) → use `Time`.
 
 **Wire type.** `LocalDate` (nullable when not required).
+
+**Golden.** [`golden/Date.custom-field.json`](golden/Date.custom-field.json)
 
 **Key constraints.**
 
@@ -236,6 +254,8 @@
 
 **Wire type.** `Instant` (ISO 8601, e.g. `2026-05-24T13:45:00Z`).
 
+**Golden.** [`golden/Datetime.custom-field.json`](golden/Datetime.custom-field.json)
+
 **Key constraints.**
 
 - `defaults.defaultValue` — typically omitted; if used, must be ISO-8601.
@@ -259,6 +279,8 @@
 
 **Wire type.** `LocalTime` (nullable when not required).
 
+**Golden.** [`golden/Time.custom-field.json`](golden/Time.custom-field.json)
+
 **Relates to.** Pairs with `Date` when you want to model a recurring schedule (e.g. `OpenDays: [Mon, Tue, Wed]`, `OpenTime: 09:00`, `CloseTime: 17:00`). Skedulo has rich standard objects for shifts and availability — see `references/standard-objects.md` before modelling your own.
 
 ---
@@ -277,17 +299,21 @@
 
 **Wire type.** `String` (nullable when not required). The value sent on the wire is the picklist value's `value` (not the human-friendly `label`).
 
+**Golden.** [`golden/Picklist.custom-field.json`](golden/Picklist.custom-field.json)
+
 **Key constraints.**
 
 - `field.allowedValues: [{ value, label, active, default }]` — array of value definitions on the `field` object (not nested under a `picklist` key).
 - `field.multipleAllowed: false` — distinguishes single-select from multi-select (must be `false` here; set `true` for entry 11).
-- `defaults.defaultValue` — must match one of the `value`s in `allowedValues`. At most one entry should also have `default: true`. **If the field is `required`, you MUST set `defaults.defaultValue`, and it MUST equal the `value` of the entry marked `default: true`** — a required picklist with no default (or whose top-level default disagrees with the `default: true` flag) is rejected at upsert.
+- `defaults.defaultValue` — must match one of the `value`s in `allowedValues`. **If the field is `required`, you MUST set `defaults.defaultValue`** — without it the upsert fails with `Column … must have a default value`, even on a brand-new object. It is only the server-side insert default.
+- `allowedValues[].default` — at most one entry `true`. It drives the web Create form pre-fill (exposed as the vocabulary's `defaultValue` in `/custom/vocabularies`) and is independent of `defaults.defaultValue`: the two may differ, and no entry needs `default: true`. A required picklist that should start empty ("Select") keeps `defaults.defaultValue` and marks every entry `default: false`.
 
 **Relates to.** When extending a standard-object picklist (e.g. `Jobs.AbortReason`), use `StandardPicklist` instead — retrieved via `sked artifacts custom-field get --objectName Jobs --name AbortReason`. See entry 15 below.
 
 **Gotchas.**
 
 - **Immutable platform picklists.** Some standard-object picklists (`Jobs.JobStatus`, `Jobs.CustomerConfirmationStatus`, `Resources.Category`, `Activities.Type`, `Availabilities.Status`) are system-managed and CANNOT be modified — not via the CLI, not via the Pulse REST API. Do not shadow them with a custom `Status` field; pick a different name (`ApprovalState`, `WorkflowStage`, etc.).
+- **`constraints.defaults` is read-only once deployed** (on every field type, not just picklists), as is every other `constraints` key and `multipleAllowed`. Adding, removing, or changing `defaultValue` is rejected with `Attempting to modify the following read-only attributes: /field/constraints/defaults`, and `sked package deploy local --dryRun` does not catch it. The only path is delete + re-create, losing written data. `allowedValues` (including each entry's `default`) can still be changed.
 - Picklist value `value` is the wire identifier — once data is written, renaming a `value` orphans existing rows. Add new values; deactivate old ones (`active: false`); never rename in place.
 
 ---
@@ -304,6 +330,8 @@
 **When NOT to use.** Single-value selection → use single-select Picklist. References to rows → use `HasMany` of a join object (or one of Skedulo's standard `*Tags` patterns — check `references/standard-objects.md` first).
 
 **Wire type.** `[String!]` (list of strings; `null` represents an empty selection).
+
+**Golden.** [`golden/MultiPicklist.custom-field.json`](golden/MultiPicklist.custom-field.json) — `field.type` stays `"Picklist"`; only `multipleAllowed: true` differs.
 
 **Key constraints.** Same as single-select Picklist — `field.allowedValues` array; `field.multipleAllowed: true` (the only difference from single-select); `defaults.defaultValue` is an array of `value`s, and multiple `allowedValues` entries may have `default: true`.
 
@@ -328,6 +356,8 @@
 **When NOT to use.** Many-to-many → model with a junction object that has two Lookups. The reverse direction (parent → children) → use `HasMany` on the parent (entry 13).
 
 **Wire type.** Two fields at GraphQL: `<LookupName>: <TargetObject>` (the object) AND `<LookupName>Id: ID` (the scalar ID). Both surfaced automatically from a single Lookup state file.
+
+**Golden.** [`golden/Lookup.custom-field.json`](golden/Lookup.custom-field.json)
 
 **Key constraints.**
 
@@ -358,6 +388,8 @@
 **When NOT to use.** When you only ever query starting from the child (you don't need the parent → children traversal). When the relationship is many-to-many — model as a junction object instead. When the relationship is one-to-one (rare) — use a Lookup on the child without a HasMany on the parent.
 
 **Wire type.** `[<ChildObject>!]!` — non-null list, always present, empty list when no children.
+
+**Golden.** [`golden/HasMany.custom-field.json`](golden/HasMany.custom-field.json)
 
 **Key constraints.**
 
@@ -432,4 +464,4 @@ The retrieved state file has `field.type: "StandardPicklist"` — NOT `"Picklist
 3. **Modelling a relationship.** Forward direction (this row → one of those) = `Lookup` (entry 12). Reverse direction (this row → many of those) = `HasMany` on the parent (entry 13). Many-to-many = junction object with two Lookups. See `references/standard-objects.md` for the standard-object catalog before inventing a new junction.
 4. **Modifying a standard-object picklist.** Retrieve with `sked artifacts custom-field get`, edit the values array, upsert. The `field.type` will be `StandardPicklist` — do not change it. For picklist-value dependencies, use the Pulse REST `/custom/vocabulary` API instead.
 
-For the full state-file shape (every JSON key, every constraint flag), see `SKILL.md` § "The 13 Field Types" — this reference is a quick-pick companion, not a replacement for the full state-file examples.
+For the full state-file shape (every JSON key, every constraint flag), copy the type's file from [`golden/`](golden/) — this reference is a quick-pick companion, not a replacement for the goldens.

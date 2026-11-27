@@ -1,0 +1,40 @@
+{
+  "metadata": {
+    "type": "CustomField"
+  },
+  "objectName": "DemoObjects",
+  "name": "Stage",
+  "field": {
+    "type": "Picklist",
+    "description": "",
+    "display": {
+      "label": "Stage",
+      "order": 0,
+      "isAlert": false,
+      "showIf": null,
+      "showOnDesktop": true,
+      "showOnMobile": false,
+      "editableOnMobile": false,
+      "requiredOnMobile": false
+    },
+    "constraints": {
+      "required": false,
+      "accessMode": "ReadWrite"
+    },
+    "multipleAllowed": false,
+    "allowedValues": [
+      {
+        "value": "Open",
+        "label": "Open",
+        "active": true,
+        "default": false
+      },
+      {
+        "value": "Resolved",
+        "label": "Resolved",
+        "active": true,
+        "default": false
+      }
+    ]
+  }
+}

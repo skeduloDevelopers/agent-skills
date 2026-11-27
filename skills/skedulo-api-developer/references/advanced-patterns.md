@@ -301,7 +301,7 @@ async function updateJobsWithValidation(context, updates) {
   const jobsResult = await context.graphqlService.query(
     context.newQueryBuilder({ objectName: "Jobs", operationName: "getJobs", readOnly: true })
       .withFields(["UID", "JobStatus", "Start"])
-      .withFilter(`UID IN ('${uidList}')`)
+      .withFilter(`UID IN ['${uidList}']`)
       .withLimit(updates.length)
   );
 
@@ -365,7 +365,7 @@ class DataMigration extends GraphBatch {
       .withOrderBy("CreatedDate ASC");
 
     if (checkpoint) {
-      queryBuilder.withFilter(`CreatedDate > '${checkpoint.lastProcessedDate}'`);
+      queryBuilder.withFilter(`CreatedDate > ${checkpoint.lastProcessedDate}`);
     }
 
     return queryBuilder;
@@ -559,7 +559,7 @@ Calculate aggregated metrics:
 async function getJobStatsByRegion(context, startDate, endDate) {
   const query = `
     query JobStats {
-      jobs(filter: "Start >= '${startDate}' AND Start <= '${endDate}'") {
+      jobs(filter: "Start >= ${startDate} AND Start <= ${endDate}") {
         edges {
           node {
             UID

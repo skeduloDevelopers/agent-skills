@@ -13,11 +13,32 @@ Each config consists of:
 1. **A `.horizon-list-config.json` metadata file** — declares the object, columns, and ordering.
 2. **A `source` subdirectory** — contains one Nunjucks `.njk` template file per column.
 
+## Goal
+
+Produce deploy-ready list-config artifacts: valid config JSON plus one working column template per
+column, tracked in SPEC.md, reviewed against `references/review-checklist.md`.
+
+## Guardrails
+
+Platform rules you can't discover by reading the workspace — violations fail silently or at deploy:
+
+- `ordering` must include every column `id` — a missing id silently drops that column from the page.
+- `source` must be exactly `"./<ObjectName>-DEFAULT_LIST"` and match the real subdirectory name.
+- Column templates are standalone Nunjucks files — `extends` is not supported.
+- Verify every field name and relationship path against the GraphQL Schema MCP before referencing
+  it in a template — unverified fields render empty with no error.
+- Column `file` values are case-sensitive and must match the actual `.njk` filenames.
+
+The plugin's `PostToolUse` hook (`scripts/validate_list_config.py`) enforces `metadata.type`, the `objectName`
+pattern, `ordering` vs column `id`s and the `source` rule above on every Write/Edit of a state file; the `name`
+and feature-directory conventions only warn, and an already-deployed legacy `objectName`
+goes in `src/horizon-list-configs/naming-exceptions.json` (`{"names": [...]}`).
+
 ---
 
 ## HorizonListConfig Artifact Schema
 
-**File**: `horizon-list-configs/<feature-dir>/<ObjectName>-DEFAULT_LIST.horizon-list-config.json`
+**File**: `src/horizon-list-configs/<feature-dir>/<ObjectName>-DEFAULT_LIST.horizon-list-config.json`
 
 ```json
 {
@@ -48,7 +69,7 @@ Each config consists of:
 | `columns` | array | Yes | Ordered list of column definitions |
 | `ordering` | array | Yes | Array of column `id` values in display order — must include every column `id` |
 | `displayedActions.showActions` | boolean | Yes | Whether to show the actions panel on the list |
-| `displayedActions.displayedActions` | array | Yes | Action objects — use `[]` unless specific actions are required |
+| `displayedActions.displayedActions` | array | Yes | Custom-action **names** (strings) to show, in order. With `showActions: true`, `[]` shows every action on the object; with `showActions: false`, no actions show. See the `horizon-custom-action` plugin |
 | `source` | string | Yes | Always `"./<ObjectName>-DEFAULT_LIST"` — points to the column template subdirectory |
 
 ### Column object
@@ -81,19 +102,21 @@ Each config consists of:
 ## File Structure
 
 ```text
-horizon-list-configs/
-└── <feature-dir>/
-    ├── <ObjectName>-DEFAULT_LIST.horizon-list-config.json
-    └── <ObjectName>-DEFAULT_LIST/
-        ├── <Column1>-template.njk
-        ├── <Column2>-template.njk
-        └── ...
+<your-project>/                # CX project root = sked package root (`sked package deploy local -p .` target)
+├── skeduloPackage.json
+└── src/horizon-list-configs/
+    └── <feature-dir>/
+        ├── <ObjectName>-DEFAULT_LIST.horizon-list-config.json
+        └── <ObjectName>-DEFAULT_LIST/
+            ├── <Column1>-template.njk
+            ├── <Column2>-template.njk
+            └── ...
 ```
 
 Example for Jobs:
 
 ```text
-horizon-list-configs/
+src/horizon-list-configs/
 └── jobs/
     ├── Jobs-DEFAULT_LIST.horizon-list-config.json
     └── Jobs-DEFAULT_LIST/
@@ -180,6 +203,15 @@ template variables.
 </a>
 ```
 
+### Pattern 7 — Custom component in a cell
+
+```njk
+<platform-component package-name="my-bundle" name="MyCell" uid="{{ _.record.primaryKeyValue }}"></platform-component>
+```
+
+The component receives every attribute as a string. Parsing its props is covered in the
+`horizon-component` plugin's `horizon-component-developer` skill, **Component in a list column**.
+
 ### Breeze UI components available in templates
 
 | Component | Use for |
@@ -197,11 +229,13 @@ template variables.
 
 ## Deploy
 
+Run package commands from the CX project root — the directory holding `skeduloPackage.json`.
+
 ```bash
 # Upsert a single list config artifact
-sked artifacts horizon-list-config upsert -a <alias> -f horizon-list-configs/<feature-dir>/<ObjectName>-DEFAULT_LIST.horizon-list-config.json
+sked artifacts horizon-list-config upsert -a <alias> -f "src/horizon-list-configs/<feature-dir>/<ObjectName>-DEFAULT_LIST.horizon-list-config.json"
 
-# Deploy the whole package (all configs together)
+# Deploy the whole package (all configs together, from the CX project root)
 sked package deploy local -a <alias> -p .
 
 # Production: register first, then deploy
@@ -221,7 +255,6 @@ After deploy, the updated columns appear on the object's standard list page (e.g
 ## Status
 - Phase: [Planning | Implementation | Review | Complete]
 - Last Updated: <timestamp>
-- Last Agent: <agent-name>
 
 ## Configs to Build
 
@@ -235,8 +268,15 @@ After deploy, the updated columns appear on the object's standard list page (e.g
 - [x] LC1: ...
 
 ## Latest Review
-(appended by review agent)
+(filled by the review phase)
 ```
+
+---
+
+## References
+
+- `references/review-checklist.md` — the single review checklist, used by the build agent's review
+  phase and `/horizon-list-config:review`.
 
 ---
 

@@ -21,9 +21,14 @@ Define, edit, review, and deploy Skedulo Pulse user roles — named sets of perm
 
 ```json
 {
+  "metadata": { "type": "UserRole" },
   "name": "Auditor",
-  "description": "Read-only access to schedule data",
+  "description": "Read-only access for compliance review",
   "custom": true,
-  "permissionPatterns": ["skedulo.tenant.schedule.read", "skedulo.tenant.reports.*"]
+  "permissionPatterns": [
+    "skedulo.tenant.web.access",
+    "skedulo.tenant.data.view",
+    "skedulo.tenant.lists.view"
+  ]
 }
 ```
