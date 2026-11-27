@@ -1,0 +1,25 @@
+{
+  "metadata": {
+    "type": "CustomField"
+  },
+  "objectName": "DemoObjects",
+  "name": "CompletedAt",
+  "field": {
+    "type": "Datetime",
+    "description": "",
+    "display": {
+      "label": "Completed At",
+      "order": 0,
+      "isAlert": false,
+      "showIf": null,
+      "showOnDesktop": true,
+      "showOnMobile": false,
+      "editableOnMobile": false,
+      "requiredOnMobile": false
+    },
+    "constraints": {
+      "required": false,
+      "accessMode": "ReadWrite"
+    }
+  }
+}

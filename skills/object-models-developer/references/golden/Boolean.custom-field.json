@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "type": "CustomField"
+  },
+  "objectName": "DemoObjects",
+  "name": "IsActive",
+  "field": {
+    "type": "Boolean",
+    "description": "",
+    "display": {
+      "label": "Is Active",
+      "order": 0,
+      "isAlert": false,
+      "showIf": null,
+      "showOnDesktop": true,
+      "showOnMobile": false,
+      "editableOnMobile": false,
+      "requiredOnMobile": false
+    },
+    "constraints": {
+      "required": true,
+      "accessMode": "ReadWrite",
+      "defaults": {
+        "defaultValue": false
+      }
+    }
+  }
+}

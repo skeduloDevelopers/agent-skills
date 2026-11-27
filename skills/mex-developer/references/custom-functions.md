@@ -4,15 +4,15 @@
 
 ## 1. Setup
 
-**Scaffold:** `bash scripts/gen-custom-function-boilerplate.sh` — creates all stub files. Fill them in; never create from scratch.
+**Scaffold:** run `bash "${CLAUDE_PLUGIN_ROOT}/skills/mex-custom-function-builder/scripts/gen-custom-function-boilerplate.sh"` from inside the form directory — creates all stub files under `custom_functions/`. Fill them in; never create from scratch.
 
 **Enable flags** in `upload_config.json`:
 
 ```json
-{ "customFunctionFeatures": { "fetchFunction": true, "staticFunction": true, "saveFunction": false } }
+{ "customFunctionFeatures": { "fetchFunction": true, "staticFunction": true, "saveFunction": false, "validateFunction": false, "searchFunction": false } }
 ```
 
-Only set a flag to `true` after the handler is implemented. `fetchFunction` → runs `instanceFetch.json` when `false`. `staticFunction` → runs `staticFetch.json` when `false`. `saveFunction` → default single-object upsert when `false`.
+Only set a flag to `true` after the handler is implemented and registered. `fetchFunction` → runs `instanceFetch.json` when `false`. `staticFunction` → runs `staticFetch.json` when `false`. `saveFunction` → default single-object upsert when `false`. `validateFunction` → no pre-save validation when `false`. `searchFunction` → `onlineSource` pickers are served by `mex_definition/onlineSearch.json` when `false`.
 
 **Import paths** — always use these exact subpath imports when using `@skedulo/mex-service-libs`:
 
@@ -30,12 +30,14 @@ import { fetchMexData } from './functions/fetcher'
 import { fetchMexStaticData } from './functions/staticFetcher'
 import { saveMexData } from './functions/saver'
 import { validateMexData } from './functions/validator'
+import { onlineSearch } from './functions/search'
 
 export const params: CustomFunctionParams = {
     fetch:    { handler: fetchMexData },
     save:     { handler: saveMexData },
     validate: { handler: validateMexData },
-    static: { handler: fetchMexStaticData }
+    static: { handler: fetchMexStaticData },
+    search: { handler: onlineSearch }
 }
 ```
 
@@ -90,6 +92,29 @@ const resourceId = input.userInfo.resourceId
 | Single-entity save | `functions/saver.ts` | [single-entity.save.md](./custom-function/single-entity.save.md) |
 | Multi-entity save | `functions/saver.ts` | [multi-entity.save.md](./custom-function/multi-entity.save.md) |
 | Validate | `functions/validator.ts` | Skip it for now |
+| Search (`onlineSource` pickers) | `functions/search.ts` | [Search handler](#search-handler-onlinesource-pickers) below |
+
+### Search handler (`onlineSource` pickers)
+
+Serves the `/mex/onlineSearch` request from a `selectEditor` / `multiSelectEditor` `onlineSource` ([Editor Components](./ui/editor-components.md#online-search-in-an-offline-form-onlinesource)) when `customFunctionFeatures.searchFunction` is `true`. Use it instead of `mex_definition/onlineSearch.json` when the filter must branch on the typed text.
+
+- Input `CustomSearchInput`: `{ label: string, variables?: Variables }`. `label` is the picker's `onlineSource.key`; `variables` is `{ searchText, ...onlineSource.variables }`.
+- Output `CustomSearchResult`: `{ data: any, attachmentParentIds?: string[] }` — `data` is the array of items the select page lists.
+- Return `data: []` for an unknown `label` or missing variables.
+
+```typescript
+import { CustomFunctionStatus, CustomInput, CustomResult, CustomSearchInput, CustomSearchResult } from '@skedulo/mex-service-libs/types'
+
+export async function onlineSearch(input: CustomInput<CustomSearchInput>): Promise<CustomResult<CustomSearchResult>> {
+    const accountId = input.variables?.accountId
+    if (input.label !== 'Contacts' || !accountId) return { status: CustomFunctionStatus.SUCCESS, data: [] }
+    const filter = buildContactFilter(accountId, input.variables?.searchText ?? '')
+    const result = await input.services.GraphQLService.executeQuery<ContactsQuery, ContactsQueryVariables>(QUERY, { filter })
+    return { status: CustomFunctionStatus.SUCCESS, data: result.contacts.edges.map(e => e.node) }
+}
+```
+
+Register it as `search: { handler: onlineSearch }` in `params.ts` and set `"customFunctionFeatures": { "searchFunction": true }` in `upload_config.json`.
 
 ### Custom HTTP handler
 

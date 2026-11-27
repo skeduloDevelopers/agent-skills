@@ -1,0 +1,40 @@
+{
+  "metadata": {
+    "type": "CustomField"
+  },
+  "objectName": "DemoObjects",
+  "name": "Category",
+  "field": {
+    "type": "Picklist",
+    "description": "",
+    "display": {
+      "label": "Category",
+      "order": 0,
+      "isAlert": false,
+      "showIf": null,
+      "showOnDesktop": true,
+      "showOnMobile": false,
+      "editableOnMobile": false,
+      "requiredOnMobile": false
+    },
+    "constraints": {
+      "required": false,
+      "accessMode": "ReadWrite"
+    },
+    "multipleAllowed": true,
+    "allowedValues": [
+      {
+        "value": "Indoor",
+        "label": "Indoor",
+        "active": true,
+        "default": false
+      },
+      {
+        "value": "Outdoor",
+        "label": "Outdoor",
+        "active": true,
+        "default": false
+      }
+    ]
+  }
+}

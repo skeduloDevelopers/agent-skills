@@ -2,7 +2,7 @@
 
 > Quick-lookup catalog of the 49 Skedulo Pulse standard objects, distilled from the canonical object reference. Use this BEFORE proposing any new custom object — if a standard object already covers the concept, extend it with custom fields rather than inventing a new one.
 >
-> For full field-level detail (every field, every description, every validation rule), consult the canonical reference: `object-reference/02-standard-objects.md` in the `skedulo-platform` skill.
+> For full field-level detail (every field, every description, every validation rule), consult the canonical reference: `api-references/objects/02-standard-objects.md` in the `skedulo-platform` skill.
 
 ## Universal system fields
 
@@ -1408,7 +1408,7 @@ Every standard object has the following read-only system fields, populated autom
 | Field | Type | Notes |
 |---|---|---|
 | `Name` | Text | |
-| `Classification` | Picklist | Values: `Global`, `Human`, `Asset`. [immutable picklist — cannot be modified] Restricts which `ResourceType` the tag applies to (`Human` → `Person` resources, `Asset` → `Asset` resources, `Global` → any). |
+| `Classification` | Picklist | Values: `Global`, `Human`, `Asset`. [immutable picklist — cannot be modified] Restricts which `ResourceType` the tag applies to. |
 | `Type` | Picklist | Values: `Skill`. Customizable — add custom tag categories here. |
 
 **Parents** (this row points to ONE of these — outbound Lookups):
@@ -1487,4 +1487,4 @@ Every standard object has the following read-only system fields, populated autom
 2. **For tag-like / skill-like / certification-like concepts**, use the `Tags` + `<Entity>Tags` pattern (with `ExpiryDate` on `ResourceTags` for credentials). Do not invent a parallel taxonomy.
 3. **For status / type picklists already defined on a standard object**, modify the picklist values via the REST `/custom/vocabulary` API. Do not add a custom `Status__c` parallel field.
 4. **For relationship-extension needs**, prefer using one of the existing junction tables (`*Tags`, `*Resources`, `ResourceRegions`, `HolidayRegions`, `ShiftOfferShifts`, etc.) before inventing your own.
-5. **When you genuinely need a new custom object**, refer to the canonical `object-reference/02-standard-objects.md` for full field details and validation rules, then design your custom object so its relationships compose cleanly with the standard graph (Lookups into `Jobs`, `Resources`, `Accounts`, `Regions`, `Locations`, `Tags` are the most common attachment points).
+5. **When you genuinely need a new custom object**, refer to the canonical `api-references/objects/02-standard-objects.md` (in the `skedulo-platform` skill) for full field details and validation rules, then design your custom object so its relationships compose cleanly with the standard graph (Lookups into `Jobs`, `Resources`, `Accounts`, `Regions`, `Locations`, `Tags` are the most common attachment points).

@@ -1,0 +1,27 @@
+{
+  "metadata": {
+    "type": "CustomField"
+  },
+  "objectName": "DemoObjects",
+  "name": "Website",
+  "field": {
+    "type": "URL",
+    "description": "",
+    "display": {
+      "label": "Website",
+      "order": 0,
+      "isAlert": false,
+      "showIf": null,
+      "showOnDesktop": true,
+      "showOnMobile": false,
+      "editableOnMobile": false,
+      "requiredOnMobile": false
+    },
+    "constraints": {
+      "required": false,
+      "unique": false,
+      "accessMode": "ReadWrite",
+      "maxLength": 255
+    }
+  }
+}

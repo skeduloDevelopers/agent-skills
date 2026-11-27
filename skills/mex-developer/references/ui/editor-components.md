@@ -61,6 +61,7 @@ Single or multi-line text input.
 - `title`: Localized label key.
 - `valueExpression`: Data binding.
 - `readonly`: (Optional) Expression to disable editing.
+- `multiline`: (Optional) `true` for a multi-line input. Lowercase — the engine ignores `multiLine`. `features.useVoiceToText` throws unless `multiline` is `true` and the editor's data type is string.
 
 #### Example
 ```json
@@ -68,7 +69,7 @@ Single or multi-line text input.
   "type": "textEditor",
   "title": "DescriptionTitle",
   "valueExpression": "formData.Job.Description",
-  "multiLine": true,
+  "multiline": true,
   "placeholder": "EnterDescription"
 }
 ```
@@ -77,8 +78,9 @@ Single or multi-line text input.
 Single-select dropdown or list.
 - `type`: `"selectEditor"`
 - `title`: Localized label key.
-- `sourceExpression`: Data context path (e.g., `sharedData.Options` or `sharedData.__vocabulary.VocabKey`). Omit when using `onlineMode`.
-- `onlineMode`: (Optional) Live server-side search source. See `../online-mode-queries.md` → "Editor `onlineMode`".
+- `sourceExpression`: Data context path (e.g., `sharedData.Options` or `sharedData.__vocabulary.VocabKey`). Omit when using `onlineSource` or `onlineMode`.
+- `onlineSource`: (Optional) Server-side search in an **offline** form. See [Online search in an offline form](#online-search-in-an-offline-form-onlinesource).
+- `onlineMode`: (Optional) Live server-side source for **Online Only Mode** forms only (`settings.fullOnlineMode: true` — see [Online Only Mode](../online-mode.md)). See `../online-mode-queries.md` → "Editor `onlineMode`". In an offline form use `onlineSource`.
 - `displayExpression`: For Object/Lookup sources, the full data path to the display field of the selected item (e.g., `pageData.Product.Name` when `structureExpression` is `pageData.Product`). For Picklists, use `converters.ui.translatePicklist(valueExpression, sourceExpression)` to map stored values to display labels (e.g., `converters.ui.translatePicklist(pageData.PlantType, sharedData.__vocabulary.PlantTypeVocab)`).
 - `valueExpression`: Binding for the selected value.
 - `structureExpression`: (Optional) Binding for the cloned object. **Omit for Picklist/Vocabulary data.**
@@ -112,14 +114,53 @@ Single-select dropdown or list.
 ```
 *(In en.json: `"PlantTypeItemTitle": "${item.Label}"` - because `item` is a { Label: string, Value: string } in picklists)*
 
-### Multi Selector Editor
+#### Online search in an offline form (`onlineSource`)
+
+Use `onlineSource` when an offline form's picker must search records that are not in the local cache. `onlineMode` is the Online Only Mode surface and failed on device in an offline form; `onlineSource` works there. Engine comments mark `onlineSource` "Deprecated, onlineMode should be used"; ignore that for offline forms, where `onlineMode` is not an option.
+
+```json
+{
+  "type": "selectEditor",
+  "title": "ContactLabel",
+  "structureExpression": "pageData.Contact",
+  "valueExpression": "pageData.ContactId",
+  "displayExpression": "pageData.Contact.FullName",
+  "onlineSource": { "key": "Contacts", "variables": { "accountId": "${formData.JobDetails.AccountId}" } },
+  "constructResultObject": { "data": { "UID": "${item.UID}", "FullName": "${item.FullName}" }, "objectName": "Contacts", "compareProperty": "UID" },
+  "selectPage": { "title": "ContactSelectTitle", "itemTitle": "ContactSelectItemTitle", "searchBar": { "placeholder": "ContactSearchPlaceholder" } },
+  "mandatory": true
+}
+```
+
+- `key`: names the search on the backend (sent as `label`).
+- `variables`: each value is evaluated once against the data context (one level, `${...}`).
+- On each search the engine POSTs `/mobile/v3/api/user/mex/onlineSearch` with `{ mexDefUID, label: <key>, variables: { searchText: <typed text>, ...variables } }`.
+- The search bar renders only when `selectPage.searchBar` is set. Without it the user cannot type a search.
+- With no connection the picker shows a "requires internet" status instead of results; the form does not crash.
+- `multiSelectEditor` accepts the same `onlineSource`.
+
+The request is served by one of two backends:
+
+1. **Declarative** — `mex_definition/onlineSearch.json`. Each top-level key other than `type` is an `onlineSource.key`. `${searchText}` is the typed text; any other `${name}` comes from `onlineSource.variables`.
+
+   ```json
+   {
+     "type": "GraphQl",
+     "Accounts": { "object": "Accounts", "fields": ["Name", "UID"], "filter": "Name LIKE '%${searchText}%'" },
+     "Contacts": { "object": "Contacts", "fields": ["UID", "FullName", "AccountId"], "filter": "AccountId == '${accountId}' AND FullName LIKE '%${searchText}%'" }
+   }
+   ```
+
+2. **Search custom function** — set `customFunctionFeatures.searchFunction: true` and register a `search` handler. Use it when the filter must branch on the typed text: a static filter cannot (e.g. `DateOfBirth == '${searchText}'` errors when the text is not a date). See [Custom Functions → Search handler](../custom-functions.md#search-handler-onlinesource-pickers).
+
+### Multi Select Editor
 Multi-select list.
-- `type`: `"multiSelectorEditor"`
+- `type`: `"multiSelectEditor"`
 
 #### Example
 ```json
 {
-  "type": "multiSelectorEditor",
+  "type": "multiSelectEditor",
   "title": "PartsTitle",
   "sourceExpression": "sharedData.Parts",
   "displayExpression": "Name",

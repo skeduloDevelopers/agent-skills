@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "type": "CustomField"
+  },
+  "objectName": "DemoObjects",
+  "name": "Account",
+  "field": {
+    "type": "Lookup",
+    "description": "",
+    "display": {
+      "label": "Account",
+      "order": 0,
+      "isAlert": false,
+      "showIf": null,
+      "showOnDesktop": true,
+      "showOnMobile": false,
+      "editableOnMobile": false,
+      "requiredOnMobile": false
+    },
+    "constraints": {
+      "required": false,
+      "accessMode": "ReadWrite"
+    },
+    "relationship": {
+      "targetObjectName": "Accounts"
+    }
+  }
+}

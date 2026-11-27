@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "type": "CustomField"
+  },
+  "objectName": "DemoObjects",
+  "name": "Amount",
+  "field": {
+    "type": "Decimal",
+    "description": "",
+    "display": {
+      "label": "Amount",
+      "order": 0,
+      "isAlert": false,
+      "showIf": null,
+      "showOnDesktop": true,
+      "showOnMobile": false,
+      "editableOnMobile": false,
+      "requiredOnMobile": false
+    },
+    "constraints": {
+      "required": false,
+      "unique": false,
+      "accessMode": "ReadWrite",
+      "precision": 10,
+      "scale": 2
+    }
+  }
+}
